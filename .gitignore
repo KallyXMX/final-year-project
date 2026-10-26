@@ -1,0 +1,4 @@
+node_modules/
+buk_recruitment.db
+public/uploads/
+.env

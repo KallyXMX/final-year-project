@@ -1,0 +1,19 @@
+  </main>
+  <footer class="site-footer">
+    <p>&copy; 2026 Bayero University Kano &mdash; Staff Recruitment System</p>
+  </footer>
+
+  <!-- bfcache buster: forces a hard reload when the user navigates back via
+       browser history after logout, ensuring the server session check runs
+       and unauthenticated users are redirected to /login immediately. -->
+  <script>
+    window.addEventListener('pageshow', function (event) {
+      var navEntry = performance.getEntriesByType('navigation')[0];
+      var isBackForward = navEntry && navEntry.type === 'back_forward';
+      if (event.persisted || isBackForward) {
+        window.location.reload();
+      }
+    });
+  </script>
+</body>
+</html>

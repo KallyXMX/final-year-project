@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Applicant Management - BUK Recruitment</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      background-color: #f0f2f5;
+      color: #2d3748;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    h1 {
+      font-size: 24px;
+      color: #1a202c;
+    }
+
+    .vacancy-subtitle {
+      color: #718096;
+      font-size: 15px;
+      margin-top: 4px;
+    }
+
+    .back-link {
+      color: #3182ce;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    .table-card {
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f7fafc;
+      padding: 14px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #4a5568;
+      text-transform: uppercase;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    td {
+      padding: 16px 18px;
+      font-size: 14px;
+      border-bottom: 1px solid #edf2f7;
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .applicant-name {
+      font-weight: 600;
+      color: #1a202c;
+    }
+
+    .applicant-email {
+      color: #718096;
+      font-size: 13px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-pending {
+      background-color: #fefcbf;
+      color: #744210;
+    }
+
+    .status-accepted {
+      background-color: #c6f6d5;
+      color: #22543d;
+    }
+
+    .status-shortlisted {
+      background-color: #b2f5ea;
+      color: #234e52;
+    }
+
+    .status-rejected {
+      background-color: #fed7d7;
+      color: #742a2a;
+    }
+
+    .score-badge {
+      font-weight: 600;
+      color: #2b6cb0;
+    }
+
+    .not-taken {
+      color: #a0aec0;
+      font-style: italic;
+    }
+
+    .actions-form {
+      display: inline-flex;
+      gap: 8px;
+    }
+
+    .btn-accept,
+    .btn-reject {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .btn-accept {
+      background-color: #38a169;
+      color: #ffffff;
+    }
+
+    .btn-accept:hover {
+      background-color: #2f855a;
+    }
+
+    .btn-reject {
+      background-color: #e53e3e;
+      color: #ffffff;
+    }
+
+    .btn-reject:hover {
+      background-color: #c53030;
+    }
+
+    .empty-state {
+      background: #ffffff;
+      padding: 48px;
+      text-align: center;
+      border-radius: 8px;
+      color: #718096;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-shortlist {
+      display: inline-block;
+      padding: 8px 16px;
+      background-color: #805ad5;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-shortlist:hover {
+      background-color: #6b46c1;
+    }
+
+    .flash-message {
+      background-color: #c6f6d5;
+      color: #2f855a;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      font-weight: bold;
+    }
+
+    .btn-summary {
+      display: inline-block;
+      padding: 6px 12px;
+      background-color: #4299e1;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Applicant Submissions</h1>
+        <% if (locals.vacancy) { %>
+          <div class="vacancy-subtitle">
+            Position: <strong><%= vacancy.title %></strong> (<%= vacancy.department %>)
+          </div>
+        <% } %>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <% if (locals.vacancy) { %>
+          <form action="/admin/vacancies/<%= vacancy.id %>/shortlist" method="POST" style="margin:0;">
+            <button type="submit" class="btn-shortlist">Run Auto-Shortlisting</button>
+          </form>
+        <% } %>
+        <a href="/vacancies" class="back-link">&larr; Back to Vacancies</a>
+      </div>
+    </header>
+
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const shortlisted = urlParams.get('shortlisted');
+      const total = urlParams.get('total');
+      if (shortlisted !== null && total !== null) {
+        document.write(`<div class="flash-message">Auto-shortlisting complete: ${shortlisted} out of ${total} pending candidates were shortlisted.</div>`);
+      }
+    </script>
+
+    <% if (applications && applications.length > 0) { %>
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>Applicant</th>
+              <th>Email</th>
+              <th>Current Status</th>
+              <th>Exam Score</th>
+              <th>Decision</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% applications.forEach(app => { %>
+              <tr>
+                <td>
+                  <div class="applicant-name"><%= app.applicant_name %></div>
+                  <a href="/admin/applications/<%= app.id %>/academic-summary" class="btn-summary">Academic Summary</a>
+                </td>
+                <td>
+                  <div class="applicant-email"><%= app.applicant_email %></div>
+                </td>
+                <td>
+                  <% if (app.status === 'Accepted') { %>
+                    <span class="status-badge status-accepted">Accepted</span>
+                  <% } else if (app.status === 'Shortlisted') { %>
+                    <span class="status-badge status-shortlisted">Shortlisted</span>
+                  <% } else if (app.status === 'Rejected') { %>
+                    <span class="status-badge status-rejected">Rejected</span>
+                  <% } else { %>
+                    <span class="status-badge status-pending"><%= app.status %></span>
+                  <% } %>
+                </td>
+                <td>
+                  <% if (app.score !== null && app.score !== undefined) { %>
+                    <span class="score-badge"><%= app.score %> / <%= app.total_questions %></span>
+                  <% } else { %>
+                    <span class="not-taken">Not Taken</span>
+                  <% } %>
+                </td>
+                <td>
+                  <form action="/applications/<%= app.id %>/status" method="POST" class="actions-form">
+                    <button type="submit" name="status" value="Accepted" class="btn-accept">Accept</button>
+                    <button type="submit" name="status" value="Rejected" class="btn-reject">Reject</button>
+                  </form>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div class="empty-state">
+        <p>No applications have been submitted for this vacancy yet.</p>
+      </div>
+    <% } %>
+  </div>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Exam Question - BUK Recruitment</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      background-color: #f0f2f5;
+      color: #2d3748;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .form-card {
+      background-color: #ffffff;
+      padding: 36px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 600px;
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    h2 {
+      font-size: 24px;
+      color: #1a202c;
+    }
+
+    .back-link {
+      color: #3182ce;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      color: #4a5568;
+      font-size: 14px;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+      background-color: #ffffff;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: #3182ce;
+      box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15);
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 540px) {
+      .options-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 12px;
+      background-color: #2b6cb0;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background-color 0.2s;
+    }
+
+    button[type="submit"]:hover {
+      background-color: #2c5282;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-card">
+    <div class="header-row">
+      <h2>Add Exam Question</h2>
+      <a href="/dashboard" class="back-link">&larr; Back to Dashboard</a>
+    </div>
+
+    <form action="/questions/create" method="POST">
+      <div class="form-group">
+        <label for="vacancy_id">Vacancy ID</label>
+        <input type="number" id="vacancy_id" name="vacancy_id" placeholder="Enter Vacancy ID" required>
+      </div>
+
+      <div class="form-group">
+        <label for="question_text">Question Text</label>
+        <textarea id="question_text" name="question_text" placeholder="Enter the exam question here" required></textarea>
+      </div>
+
+      <div class="options-grid">
+        <div class="form-group">
+          <label for="option_a">Option A</label>
+          <input type="text" id="option_a" name="option_a" placeholder="Option A text" required>
+        </div>
+
+        <div class="form-group">
+          <label for="option_b">Option B</label>
+          <input type="text" id="option_b" name="option_b" placeholder="Option B text" required>
+        </div>
+
+        <div class="form-group">
+          <label for="option_c">Option C</label>
+          <input type="text" id="option_c" name="option_c" placeholder="Option C text" required>
+        </div>
+
+        <div class="form-group">
+          <label for="option_d">Option D</label>
+          <input type="text" id="option_d" name="option_d" placeholder="Option D text" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="correct_option">Correct Option</label>
+        <select id="correct_option" name="correct_option" required>
+          <option value="" disabled selected>-- Select Correct Option --</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+        </select>
+      </div>
+
+      <button type="submit">Save Question</button>
+    </form>
+  </div>
+</body>
+</html>
