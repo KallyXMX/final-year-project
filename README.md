@@ -8,8 +8,9 @@ This is a full-stack Node.js MVC application designed to automate Bayero Univers
 - **Backend:** Node.js, Express.js
 - **Database:** better-sqlite3
 - **Templating:** EJS (Embedded JavaScript)
-- **Security:** bcrypt (Password Hashing)
-- **File Uploads:** multer
+- **Security:** bcrypt (password hashing), express-session (SQLite-backed sessions), CSRF tokens
+- **File Uploads:** multer (private storage, served only to the owner or HR)
+- **Reports / Charts:** PDFKit (PDF), csv-writer (CSV), Chart.js (HR dashboard)
 
 **Main Features:**
 - **Role-Based Access Control (RBAC):** Distinct dashboards and capabilities for Administrators and Applicants.
@@ -40,6 +41,7 @@ To get this project running locally on your machine, follow these steps:
    ```bash
    npm run seed
    ```
+   The seed creates the admin account, six demo applicants (password `pass123`), three vacancies, a question bank and sample exam results.
 
 ## Running the Application
 

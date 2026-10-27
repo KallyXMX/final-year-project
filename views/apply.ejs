@@ -1,0 +1,52 @@
+<%- include('partials/header', { pageTitle: 'Apply' }) %>
+<% const academic = vacancy.category === 'academic'; %>
+<div class="wide-form">
+  <div class="page-header"><div><h1>Apply: <%= vacancy.title %></h1>
+    <p class="sub"><%= vacancy.department %> &middot; closes <%= fmtDate(vacancy.deadline) %></p></div>
+    <a href="/vacancies">&larr; Back to Vacancies</a></div>
+  <div class="card">
+    <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+    <p class="text-muted mb-2" style="font-size:14px;"><strong>Requirements:</strong> <%= vacancy.requirements %></p>
+    <form action="/vacancies/<%= vacancy.id %>/apply?_csrf=<%= csrfToken %>" method="POST" enctype="multipart/form-data">
+      <fieldset><legend>Contact details</legend>
+        <div class="form-row">
+          <div class="form-group"><label for="phone">Phone number</label>
+            <input type="text" id="phone" name="phone" value="<%= values.phone || '' %>" placeholder="+234 801 234 5678" required></div>
+          <div class="form-group"><label for="address">Contact address</label>
+            <input type="text" id="address" name="address" value="<%= values.address || '' %>" required maxlength="300"></div>
+        </div>
+      </fieldset>
+      <fieldset><legend>Qualifications &amp; experience</legend>
+        <div class="form-row">
+          <div class="form-group"><label for="highest_qualification">Highest qualification</label>
+            <select id="highest_qualification" name="highest_qualification" required>
+              <option value="">-- select --</option>
+              <% [['Bachelor',"Bachelor's Degree / HND"],['Master',"Master's Degree"],['PhD','PhD / Doctorate'],['Other','Other / below degree']].forEach(o => { %>
+                <option value="<%= o[0] %>" <%= values.highest_qualification === o[0] ? 'selected' : '' %>><%= o[1] %></option>
+              <% }) %>
+            </select></div>
+          <div class="form-group"><label for="experience_years"><%= academic ? 'Teaching experience (years)' : 'Relevant work experience (years)' %></label>
+            <input type="number" id="experience_years" name="experience_years" min="0" max="60" value="<%= values.experience_years ?? 0 %>" required></div>
+        </div>
+        <div class="form-group"><label for="qualifications_text">Academic qualifications</label>
+          <textarea id="qualifications_text" name="qualifications_text" placeholder="One per line, e.g. B.Sc. Computer Science, BUK, 2015" required><%= values.qualifications_text || '' %></textarea></div>
+        <div class="form-group"><label for="experience_text">Work experience</label>
+          <textarea id="experience_text" name="experience_text" placeholder="One per line, e.g. Systems Officer, ABC Ltd, 2016 - 2021"><%= values.experience_text || '' %></textarea></div>
+        <% if (academic) { %>
+          <div class="form-group"><label for="publications_text">Research publications (journals, conference papers)</label>
+            <textarea id="publications_text" name="publications_text" placeholder="One publication per line. Each earns points."><%= values.publications_text || '' %></textarea></div>
+          <div class="form-group"><label for="seminars_text">Professional achievements: workshops &amp; seminars</label>
+            <textarea id="seminars_text" name="seminars_text" placeholder="One per line. Each earns points."><%= values.seminars_text || '' %></textarea></div>
+        <% } %>
+      </fieldset>
+      <fieldset><legend>Documents (PDF, DOC or DOCX, max 5MB each)</legend>
+        <div class="form-group"><label for="cv">Curriculum Vitae (CV)</label>
+          <input type="file" id="cv" name="cv" accept=".pdf,.doc,.docx" required></div>
+        <div class="form-group"><label for="supporting_docs">Supporting documents (certificates etc.)</label>
+          <input type="file" id="supporting_docs" name="supporting_docs" accept=".pdf,.doc,.docx" required></div>
+      </fieldset>
+      <button type="submit" class="btn btn-success">Submit Application</button>
+    </form>
+  </div>
+</div>
+<%- include('partials/footer') %>

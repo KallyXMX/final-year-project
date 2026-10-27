@@ -1,0 +1,27 @@
+<%- include('partials/header', { pageTitle: 'Online test' }) %>
+<div class="wide-form">
+  <div class="page-header"><div><h1>Online test</h1><p class="sub"><%= vacancy.title %> &middot; <%= vacancy.department %></p></div>
+    <a href="/my-applications">&larr; Back</a></div>
+  <div class="card">
+    <h2 style="font-size:18px;margin-bottom:10px;">Instructions</h2>
+    <ul style="margin:0 0 14px 18px;font-size:14px;line-height:1.7;">
+      <li>The test has the sections listed below. Each section is timed separately and questions are chosen at random.</li>
+      <li>When a section's time runs out it is submitted automatically and the next section begins.</li>
+      <li>Answers are marked automatically. Once you start you cannot restart the test.</li>
+      <li>Pass mark: <strong><%= vacancy.pass_mark ?? 50 %>%</strong>. Window closes <strong><%= fmtDateTime(vacancy.exam_end) %></strong>.</li>
+    </ul>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Section</th><th>Questions</th><th>Time</th><th>Weight</th></tr></thead>
+      <tbody>
+      <% sections.forEach(s => { %>
+        <tr><td><%= s.name %></td><td><%= Math.min(perSection, s.available) %></td><td><%= s.minutes %> min</td><td><%= s.weight %></td></tr>
+      <% }) %>
+      </tbody>
+    </table></div>
+    <form action="/exam/<%= vacancy.id %>/start" method="POST" style="margin-top:16px;">
+      <%- include('partials/csrf') %>
+      <button type="submit" class="btn btn-primary btn-auto">Start test</button>
+    </form>
+  </div>
+</div>
+<%- include('partials/footer') %>

@@ -1,11 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const examController = require('../controllers/examController');
-const { requireAuth, requireAdmin } = require('../middlewares/auth');
+const { requireAdmin, requireApplicant } = require('../middlewares/auth');
 
-// Exam routes
-router.get('/exam/:vacancyId', requireAuth, examController.renderExamPage);
-router.get('/questions/create', requireAdmin, (req, res) => res.render('create-question'));
+// Applicant: take the CBT
+router.get('/exam/:vacancyId', requireApplicant, examController.renderExamPage);
+router.post('/exam/:vacancyId/start', requireApplicant, examController.startExam);
+router.post('/exam/:vacancyId/submit', requireApplicant, examController.submitExam);
+router.get('/exam/:vacancyId/result', requireApplicant, examController.renderResult);
+
+// HR: question bank
+router.get('/questions/create', requireAdmin, examController.questionIndex);
+router.get('/admin/vacancies/:id/questions', requireAdmin, examController.renderQuestionBank);
 router.post('/questions/create', requireAdmin, examController.createQuestion);
+router.post('/questions/:id/delete', requireAdmin, examController.deleteQuestion);
 
 module.exports = router;

@@ -1,98 +1,33 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>All Applications - HR Admin Dashboard</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f9; }
-    .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    h1 { color: #333; margin-top: 0; }
-    .filter-form { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; }
-    .filter-group { display: flex; flex-direction: column; }
-    .filter-group label { font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #555; }
-    .filter-group input, .filter-group select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-    .btn { padding: 9px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-size: 14px; }
-    .btn-clear { background: #6c757d; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
-    th { background: #f1f1f1; }
-    .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
-    .empty-state { text-align: center; padding: 30px; color: #777; font-style: italic; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <a href="/dashboard" style="display:inline-block; margin-bottom:15px; color:#007bff; text-decoration:none;">&larr; Back to Dashboard</a>
-    <h1>All Applicant Submissions</h1>
+<%- include('../partials/header', { pageTitle: 'All applicants' }) %>
+<div class="page-header"><h1>All Applicants</h1>
+  <div class="actions"><a href="/admin/reports/applicants/csv" class="btn btn-secondary btn-sm">Export CSV</a>
+  <a href="/admin/reports/applicants/pdf" class="btn btn-secondary btn-sm">Export PDF</a></div></div>
 
-    <form class="filter-form" method="GET" action="/admin/applications">
-      <div class="filter-group">
-        <label for="search">Search Name/Email</label>
-        <input type="text" id="search" name="search" value="<%= query.search || '' %>" placeholder="e.g. John Doe">
-      </div>
-      <div class="filter-group">
-        <label for="status">Application Status</label>
-        <select id="status" name="status">
-          <option value="">-- All Statuses --</option>
-          <option value="Pending" <%= query.status === 'Pending' ? 'selected' : '' %>>Pending</option>
-          <option value="Shortlisted" <%= query.status === 'Shortlisted' ? 'selected' : '' %>>Shortlisted</option>
-          <option value="Recommended" <%= query.status === 'Recommended' ? 'selected' : '' %>>Recommended</option>
-          <option value="Rejected" <%= query.status === 'Rejected' ? 'selected' : '' %>>Rejected</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label for="vacancy_id">Vacancy</label>
-        <select id="vacancy_id" name="vacancy_id">
-          <option value="">-- All Vacancies --</option>
-          <% vacancies.forEach(v => { %>
-            <option value="<%= v.id %>" <%= query.vacancy_id == v.id ? 'selected' : '' %>><%= v.title %></option>
-          <% }) %>
-        </select>
-      </div>
-      <div class="filter-group" style="flex-direction: row; gap: 10px;">
-        <button type="submit" class="btn">Filter</button>
-        <a href="/admin/applications" class="btn btn-clear">Clear Filters</a>
-      </div>
-    </form>
+<form class="filter-form" method="GET" action="/admin/applications">
+  <div class="form-group"><label for="search">Search name / email</label>
+    <input type="text" id="search" name="search" value="<%= query.search || '' %>" placeholder="e.g. Alice"></div>
+  <div class="form-group"><label for="status">Status</label>
+    <select id="status" name="status"><option value="">All</option>
+      <% ['Pending','Shortlisted','Recommended','Accepted','Rejected'].forEach(s => { %>
+        <option value="<%= s %>" <%= query.status === s ? 'selected' : '' %>><%= s %></option><% }) %></select></div>
+  <div class="form-group"><label for="vacancy_id">Vacancy</label>
+    <select id="vacancy_id" name="vacancy_id"><option value="">All</option>
+      <% vacancies.forEach(v => { %><option value="<%= v.id %>" <%= String(query.vacancy_id) === String(v.id) ? 'selected' : '' %>><%= v.title %></option><% }) %></select></div>
+  <div class="actions"><button type="submit" class="btn btn-primary btn-sm">Filter</button>
+    <a href="/admin/applications" class="btn btn-secondary btn-sm">Clear</a></div>
+</form>
 
-    <% if (applications && applications.length > 0) { %>
-      <table>
-        <thead>
-          <tr>
-            <th>Applicant Name</th>
-            <th>Email</th>
-            <th>Vacancy</th>
-            <th>Applied At</th>
-            <th>Score</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% applications.forEach(app => { %>
-            <tr>
-              <td><%= app.applicant_name %></td>
-              <td><%= app.applicant_email %></td>
-              <td><%= app.vacancy_title %></td>
-              <td><%= new Date(app.applied_at).toLocaleDateString() %></td>
-              <td><%= app.score !== null ? (app.score + '/' + app.total_questions) : 'N/A' %></td>
-              <td>
-                <span class="status-badge" style="background: <%= app.status==='Rejected' ? '#fed7d7' : (app.status==='Pending' ? '#edf2f7' : '#c6f6d5') %>; color: <%= app.status==='Rejected' ? '#742a2a' : (app.status==='Pending' ? '#4a5568' : '#22543d') %>;">
-                  <%= app.status %>
-                </span>
-              </td>
-              <td>
-                <a href="/admin/applications/<%= app.id %>/academic-summary" class="btn" style="padding: 4px 8px; font-size: 12px;">View Details</a>
-              </td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    <% } else { %>
-      <div class="empty-state">
-        No applicants match your current filters.
-      </div>
-    <% } %>
-  </div>
-</body>
-</html>
+<% if (applications.length === 0) { %><div class="empty">No applicants match your filters.</div><% } else { %>
+<div class="table-wrap"><table>
+  <thead><tr><th>Applicant</th><th>Vacancy</th><th>Applied</th><th>Score</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  <% applications.forEach(a => { %>
+    <tr><td><strong><%= a.applicant_name %></strong><br><span class="text-muted" style="font-size:12px;"><%= a.applicant_email %></span></td>
+      <td><%= a.vacancy_title %></td><td><%= fmtDate(a.applied_at) %></td>
+      <td><%= a.category === 'academic' ? a.academic_score + ' pts' : (a.percentage !== null ? (+a.percentage).toFixed(1) + '%' : 'N/A') %></td>
+      <td><span class="badge status-<%= a.status %>"><%= a.status %></span></td>
+      <td><a href="/admin/applications/<%= a.id %>" class="btn btn-secondary btn-sm">View details</a></td></tr>
+  <% }) %>
+  </tbody></table></div>
+<% } %>
+<%- include('../partials/footer') %>

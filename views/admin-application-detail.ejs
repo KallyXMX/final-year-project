@@ -1,0 +1,113 @@
+<%- include('partials/header', { pageTitle: 'Applicant details' }) %>
+<% const academic = application.category === 'academic'; %>
+<div class="page-header no-print">
+  <div><h1><%= application.applicant_name %></h1>
+    <p class="sub"><%= application.vacancy_title %> &middot; <%= application.department %></p></div>
+  <div class="actions">
+    <a href="/vacancies/<%= application.vacancy_id %>/applications" class="btn btn-secondary btn-sm">&larr; Back</a>
+    <button onclick="window.print()" class="btn btn-success btn-sm btn-auto">Print panel summary</button>
+  </div>
+</div>
+<div class="print-only"><h1>Bayero University Kano</h1><h2>Candidate Qualification Summary (Interview Panel)</h2></div>
+
+<div class="grid grid-2">
+  <div class="card" style="margin:0">
+    <h3 style="margin-bottom:12px;">Applicant</h3>
+    <dl class="kv">
+      <dt>Name</dt><dd><%= application.applicant_name %></dd>
+      <dt>Email</dt><dd><%= application.applicant_email %></dd>
+      <dt>Phone</dt><dd><%= application.phone || '—' %></dd>
+      <dt>Address</dt><dd><%= application.address || '—' %></dd>
+      <dt>Applied</dt><dd><%= fmtDateTime(application.applied_at) %></dd>
+      <dt>Status</dt><dd><span class="badge status-<%= application.status %>"><%= application.status %></span>
+        <% if (application.status_note) { %><br><small class="text-muted"><%= application.status_note %></small><% } %></dd>
+      <dt>Documents</dt><dd>
+        <% if (application.cv_path) { %><a href="/applications/<%= application.id %>/documents/cv">CV</a><% } else { %>No CV<% } %> &middot;
+        <% if (application.supporting_documents_path) { %><a href="/applications/<%= application.id %>/documents/supporting">Supporting documents</a><% } else { %>No supporting docs<% } %></dd>
+    </dl>
+  </div>
+  <div class="card" style="margin:0">
+    <h3 style="margin-bottom:12px;">Vacancy criteria vs applicant</h3>
+    <dl class="kv">
+      <dt>Min. qualification</dt><dd><%= application.min_qualification %></dd>
+      <dt>Highest qualification</dt><dd><%= application.highest_qualification || '—' %></dd>
+      <dt>Min. experience</dt><dd><%= application.min_experience_years %> yr</dd>
+      <dt>Experience</dt><dd><%= application.experience_years || 0 %> yr</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="card mt-2">
+  <h3 style="margin-bottom:12px;">Qualifications, experience<%= academic ? ', publications, seminars & workshops' : '' %></h3>
+  <div class="grid grid-2">
+    <% [['Academic qualifications', lists.qualifications], ['Work experience', lists.experience]].concat(academic ? [['Research publications', lists.publications], ['Seminars & workshops', lists.seminars]] : []).forEach(sec => { %>
+      <div><strong style="font-size:13px;"><%= sec[0] %></strong>
+        <% if (sec[1].length === 0) { %><p class="text-muted" style="font-size:13px;">None listed</p>
+        <% } else { %><ul style="padding-left:18px;font-size:14px;"><% sec[1].forEach(i => { %><li><%= i %></li><% }) %></ul><% } %></div>
+    <% }) %>
+  </div>
+</div>
+
+<% if (academic) { %>
+  <div class="card">
+    <h3 style="margin-bottom:12px;">Academic evaluation</h3>
+    <table>
+      <thead><tr><th>Criteria</th><th>Applicant details</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Degree qualification <small>(PhD=<%= POINTS.phd %>, Masters=<%= POINTS.master %>, Bachelor=<%= POINTS.bachelor %>)</small></td><td><%= application.highest_qualification || 'N/A' %></td><td><%= breakdown.degreePoints %></td></tr>
+        <tr><td>Teaching experience <small>(<%= POINTS.perYearExperience %> pts / year)</small></td><td><%= application.experience_years || 0 %> years</td><td><%= breakdown.expPoints %></td></tr>
+        <tr><td>Journal publications <small>(<%= POINTS.perPublication %> pts each)</small></td><td><%= application.journal_publications_count %></td><td><%= breakdown.pubPoints %></td></tr>
+        <tr><td>Seminars &amp; workshops <small>(<%= POINTS.perSeminar %> pts each)</small></td><td><%= application.seminars_attended %></td><td><%= breakdown.semPoints %></td></tr>
+        <tr><td colspan="2" style="text-align:right;"><strong>Total academic score</strong></td><td><strong><%= application.academic_score %> points</strong></td></tr>
+      </tbody>
+    </table>
+    <form action="/admin/applications/<%= application.id %>/academic-score" method="POST" class="no-print" style="margin-top:16px;">
+      <%- include('partials/csrf') %>
+      <p class="hint mb-1">HR can correct the figures after verifying documents; points are recalculated.</p>
+      <div class="form-row">
+        <div class="form-group"><label>Highest qualification</label>
+          <select name="highest_qualification"><% ['Bachelor','Master','PhD','Other'].forEach(q => { %><option <%= application.highest_qualification === q ? 'selected' : '' %>><%= q %></option><% }) %></select></div>
+        <div class="form-group"><label>Teaching years</label><input type="number" name="experience_years" min="0" value="<%= application.experience_years || 0 %>"></div>
+        <div class="form-group"><label>Publications</label><input type="number" name="journal_publications_count" min="0" value="<%= application.journal_publications_count %>"></div>
+        <div class="form-group"><label>Seminars / workshops</label><input type="number" name="seminars_attended" min="0" value="<%= application.seminars_attended %>"></div>
+      </div>
+      <button class="btn btn-secondary btn-sm btn-auto">Recalculate score</button>
+    </form>
+  </div>
+<% } else { %>
+  <div class="card">
+    <h3 style="margin-bottom:12px;">Computer-based test</h3>
+    <% if (!exam) { %><p class="text-muted">The applicant has not taken the exam.</p><% } else { %>
+      <p style="font-size:15px;"><strong><%= exam.score %>/<%= exam.total_questions %></strong> correct &middot; weighted score <strong><%= (+exam.percentage).toFixed(1) %>%</strong>
+        <span class="badge <%= exam.passed ? 'badge-success' : 'badge-danger' %>"><%= exam.passed ? 'Passed' : 'Failed' %> (pass mark <%= application.pass_mark %>%)</span></p>
+      <table style="margin-top:10px;"><thead><tr><th>Section</th><th>Correct</th><th>%</th><th>Weight</th></tr></thead><tbody>
+        <% sectionScores.forEach(s => { %><tr><td><%= s.section %></td><td><%= s.correct %>/<%= s.total %></td><td><%= s.percentage %>%</td><td><%= s.weight %></td></tr><% }) %>
+      </tbody></table>
+    <% } %>
+  </div>
+<% } %>
+
+<div class="card">
+  <h3 style="margin-bottom:12px;">Interview evaluation <span class="text-muted" style="font-size:12px;font-weight:400;">(optional &mdash; the interview itself takes place outside the system)</span></h3>
+  <% if (application.interview_score !== null) { %>
+    <p><strong>Score:</strong> <%= application.interview_score %>/100<br><strong>Panel remarks:</strong> <%= application.interviewer_remarks || 'None' %></p>
+  <% } else { %><p class="text-muted">No interview result recorded yet.</p><% } %>
+  <% if (application.shortlisted && ['Shortlisted','Recommended'].includes(application.status)) { %>
+    <form action="/admin/applications/<%= application.id %>/interview" method="POST" class="no-print" style="margin-top:14px;background:#f7fafc;padding:16px;border-radius:8px;">
+      <%- include('partials/csrf') %>
+      <div class="form-row">
+        <div class="form-group"><label for="interview_score">Interview score (0-100)</label>
+          <input type="number" id="interview_score" name="interview_score" min="0" max="100" value="<%= application.interview_score ?? '' %>" required></div>
+        <div class="form-group"><label for="final_decision">Panel decision</label>
+          <select id="final_decision" name="final_decision">
+            <option value="">Keep current status</option><option value="Recommended">Recommend</option><option value="Rejected">Reject</option></select></div>
+      </div>
+      <div class="form-group"><label for="interviewer_remarks">Panel remarks</label>
+        <textarea id="interviewer_remarks" name="interviewer_remarks" rows="3"><%= application.interviewer_remarks || '' %></textarea></div>
+      <button class="btn btn-primary btn-sm btn-auto">Save evaluation</button>
+    </form>
+  <% } else if (!application.shortlisted) { %>
+    <p class="hint">Interview results can be recorded only for shortlisted candidates.</p>
+  <% } %>
+</div>
+<%- include('partials/footer') %>

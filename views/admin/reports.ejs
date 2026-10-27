@@ -1,0 +1,31 @@
+<%- include('../partials/header', { pageTitle: 'Reports' }) %>
+<div class="page-header"><div><h1>Reports &amp; Exports</h1><p class="sub">Download as PDF or CSV, for all vacancies or one</p></div></div>
+<div class="card">
+  <div class="form-group" style="max-width:360px;"><label for="vac">Vacancy filter</label>
+    <select id="vac"><option value="">All vacancies</option>
+      <% vacancies.forEach(v => { %><option value="<%= v.id %>"><%= v.title %></option><% }) %></select></div>
+</div>
+<div class="grid grid-2">
+  <% const blurbs = { applicants: 'Every application with qualification, experience and status.', shortlisted: 'Candidates who passed automatic shortlisting and their current stage.',
+       merit: 'Ranked candidates: exam results (non-academic) and academic points, with interview scores.', statistics: 'Per-vacancy totals: applications, shortlisting, exam pass rate, outcomes.' }; %>
+  <% Object.entries(reports).forEach(([key, r]) => { %>
+    <div class="card" style="margin:0;border-top:4px solid #805ad5;">
+      <h3 style="margin-bottom:6px;"><%= r.title %></h3>
+      <p class="text-muted mb-2" style="font-size:14px;"><%= blurbs[key] %></p>
+      <div class="actions">
+        <a class="btn btn-primary btn-sm btn-auto dl" data-type="<%= key %>" data-fmt="pdf" href="/admin/reports/<%= key %>/pdf">Download PDF</a>
+        <a class="btn btn-secondary btn-sm dl" data-type="<%= key %>" data-fmt="csv" href="/admin/reports/<%= key %>/csv">Download CSV</a>
+      </div>
+    </div>
+  <% }) %>
+</div>
+<script>
+  var sel = document.getElementById('vac');
+  function sync() {
+    document.querySelectorAll('a.dl').forEach(function (a) {
+      a.href = '/admin/reports/' + a.dataset.type + '/' + a.dataset.fmt + (sel.value ? '?vacancy_id=' + sel.value : '');
+    });
+  }
+  sel.addEventListener('change', sync); sync();
+</script>
+<%- include('../partials/footer') %>

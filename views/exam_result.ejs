@@ -1,132 +1,24 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Examination Result - BUK Recruitment</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    }
-
-    body {
-      background-color: #f0f2f5;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      padding: 20px;
-    }
-
-    .summary-card {
-      background-color: #ffffff;
-      padding: 40px 32px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      width: 100%;
-      max-width: 460px;
-      text-align: center;
-    }
-
-    h1 {
-      font-size: 24px;
-      color: #1a202c;
-      margin-bottom: 8px;
-    }
-
-    .subtitle {
-      color: #4a5568;
-      font-size: 16px;
-      margin-bottom: 24px;
-    }
-    
-    .vacancy-title {
-      font-weight: 600;
-      color: #2b6cb0;
-    }
-
-    .score-badge {
-      background-color: #ebf8ff;
-      border: 3px solid #3182ce;
-      border-radius: 50%;
-      width: 140px;
-      height: 140px;
-      margin: 0 auto 24px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .score-number {
-      font-size: 40px;
-      font-weight: 700;
-      color: #2b6cb0;
-      line-height: 1;
-    }
-
-    .score-out-of {
-      font-size: 14px;
-      color: #718096;
-      margin-top: 6px;
-    }
-
-    .status-badge {
-      display: inline-block;
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-weight: bold;
-      font-size: 16px;
-      margin-bottom: 28px;
-      color: #fff;
-    }
-    
-    .status-passed {
-      background-color: #48bb78; /* Green */
-    }
-    
-    .status-failed {
-      background-color: #e53e3e; /* Red */
-    }
-
-    .btn-dashboard {
-      display: inline-block;
-      width: 100%;
-      padding: 14px;
-      background-color: #2b6cb0;
-      color: #ffffff;
-      text-decoration: none;
-      border-radius: 6px;
-      font-size: 16px;
-      font-weight: 600;
-      transition: background-color 0.2s;
-    }
-
-    .btn-dashboard:hover {
-      background-color: #2c5282;
-    }
-  </style>
-</head>
-<body>
-  <div class="summary-card">
-    <h1><%= applicant.name %></h1>
-    <p class="subtitle">Result for <span class="vacancy-title"><%= vacancy.title %></span></p>
-
-    <div class="score-badge">
-      <span class="score-number"><%= score %></span>
-      <span class="score-out-of">out of <%= totalQuestions %></span>
-    </div>
-
-    <div>
-      <span class="status-badge <%= passed ? 'status-passed' : 'status-failed' %>">
-        <%= passed ? 'Passed' : 'Failed' %> (<%= percentage %>%)
-      </span>
-    </div>
-
-    <a href="/dashboard" class="btn-dashboard">Back to Dashboard</a>
+<%- include('partials/header', { pageTitle: 'Test result' }) %>
+<div class="wide-form">
+  <div class="page-header"><div><h1>Test result</h1><p class="sub"><%= vacancy.title %></p></div>
+    <a href="/my-applications">&larr; My applications</a></div>
+  <div class="card text-center">
+    <div class="score-big"><%= (+result.percentage).toFixed(1) %>%</div>
+    <p class="text-muted"><%= result.score %> of <%= result.total_questions %> questions correct (weighted score)</p>
+    <p style="margin-top:10px;"><span class="badge <%= result.passed ? 'badge-success' : 'badge-danger' %>" style="font-size:14px;">
+      <%= result.passed ? 'Passed' : 'Below pass mark' %></span> <span class="text-muted">Pass mark: <%= passMark %>%</span></p>
   </div>
-</body>
-</html>
+  <% if (sections.length) { %>
+  <div class="card">
+    <h2 style="font-size:16px;margin-bottom:10px;">Section breakdown</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Section</th><th>Correct</th><th>Score</th><th>Weight</th></tr></thead>
+      <tbody><% sections.forEach(s => { %>
+        <tr><td><%= s.section %></td><td><%= s.correct %> / <%= s.total %></td><td><%= (+s.percentage).toFixed(1) %>%</td><td><%= s.weight %></td></tr>
+      <% }) %></tbody>
+    </table></div>
+  </div>
+  <% } %>
+  <p class="text-muted" style="font-size:13px;">Submitted <%= fmtDateTime(result.submitted_at) %>. HR will contact shortlisted candidates about the physical interview.</p>
+</div>
+<%- include('partials/footer') %>

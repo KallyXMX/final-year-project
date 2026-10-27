@@ -1,72 +1,52 @@
-<%- include('partials/header', { user: locals.user || null }) %>
-
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px;">
-  <h1 style="font-size:24px; color:#1a202c;">Available Vacancies</h1>
-  <% if (locals.user && locals.user.role === 'admin') { %>
-    <a href="/vacancies/create" class="btn btn-primary" style="width:auto;">+ Post New Vacancy</a>
-  <% } %>
+<%- include('partials/header', { pageTitle: 'Vacancies' }) %>
+<% const me = locals.currentUser; const isAdmin = me && me.role === 'admin'; %>
+<div class="page-header">
+  <div><h1><%= isAdmin ? 'Manage Vacancies' : 'Available Vacancies' %></h1>
+    <p class="sub">Staff recruitment at Bayero University Kano</p></div>
+  <% if (isAdmin) { %><a href="/vacancies/create" class="btn btn-primary btn-auto">+ Post New Vacancy</a><% } %>
 </div>
 
-<% if (locals.successMessage) { %>
-  <div class="alert alert-success" style="background-color: #c6f6d5; color: #22543d; padding: 12px; border-radius: 4px; margin-bottom: 20px;"><%= successMessage %></div>
-<% } %>
-<% if (locals.errorMessage) { %>
-  <div class="alert alert-danger" style="background-color: #fed7d7; color: #742a2a; padding: 12px; border-radius: 4px; margin-bottom: 20px;"><%= errorMessage %></div>
-<% } %>
-
-<% if (vacancies && vacancies.length > 0) { %>
-  <div style="display:grid; gap:20px;">
-    <% vacancies.forEach(job => { %>
-      <div class="card" style="border-left: 4px solid #2b6cb0;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
-          <div>
-            <h2 style="font-size:19px; color:#2b6cb0; margin-bottom:6px;"><%= job.title %></h2>
-            <span class="badge badge-info"><%= job.department %></span>
-          </div>
-          <span class="text-muted" style="font-size:13px;"><strong>Deadline:</strong> <%= job.deadline %></span>
-        </div>
-
-        <p style="margin-top:14px; font-size:14px; line-height:1.6;"><strong>Description:</strong> <%= job.description %></p>
-        <p style="margin-top:8px; font-size:14px; line-height:1.6;"><strong>Requirements:</strong> <%= job.requirements %></p>
-
-        <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
-          <% 
-            let isClosed = false;
-            if (job.deadline) {
-              const deadlineDate = new Date(job.deadline);
-              if (new Date() > deadlineDate) {
-                isClosed = true;
-              }
-            }
-          %>
-          <% if (locals.user && locals.user.role === 'applicant') { %>
-            <% if (isClosed) { %>
-              <button class="btn btn-secondary" style="padding:8px 16px; font-size:14px; cursor: not-allowed; opacity: 0.6;" disabled>Closed</button>
-            <% } else { %>
-              <form action="/vacancies/<%= job.id %>/apply" method="POST" enctype="multipart/form-data" style="margin:0; width: 100%; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px;">
-                <div style="margin-bottom: 10px;">
-                  <label style="display:block; font-weight:600; font-size: 14px; margin-bottom: 5px;">Upload CV (.pdf, .doc, .docx):</label>
-                  <input type="file" name="cv" accept=".pdf,.doc,.docx" required>
-                </div>
-                <div style="margin-bottom: 15px;">
-                  <label style="display:block; font-weight:600; font-size: 14px; margin-bottom: 5px;">Upload Supporting Documents (.pdf, .doc, .docx):</label>
-                  <input type="file" name="supporting_docs" accept=".pdf,.doc,.docx" required>
-                </div>
-                <button type="submit" class="btn btn-success" style="padding:8px 16px; font-size:14px;">Apply Now</button>
-              </form>
-            <% } %>
-          <% } %>
-          <% if (locals.user && locals.user.role === 'admin') { %>
-            <a href="/vacancies/<%= job.id %>/applications" class="btn" style="background-color:#4a5568; color:#fff; padding:8px 16px; font-size:14px;">View Applications</a>
-          <% } %>
-        </div>
-      </div>
-    <% }); %>
-  </div>
+<% if (vacancies.length === 0) { %>
+  <div class="empty">No vacancies are currently available. Please check back later.</div>
 <% } else { %>
-  <div class="card text-center">
-    <p class="text-muted">No active vacancies are currently available. Please check back later.</p>
+  <div class="grid">
+  <% vacancies.forEach(job => { %>
+    <div class="card" style="border-left:4px solid <%= job.state === 'Open' ? '#38a169' : job.state === 'Upcoming' ? '#d69e2e' : '#a0aec0' %>;margin:0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h2 style="font-size:19px;color:#2b6cb0;margin-bottom:6px;"><%= job.title %></h2>
+          <span class="badge badge-info"><%= job.department %></span>
+          <span class="badge badge-purple"><%= job.category === 'academic' ? 'Academic' : 'Non-academic' %></span>
+          <span class="badge <%= job.state === 'Open' ? 'badge-success' : job.state === 'Upcoming' ? 'badge-warn' : '' %>"><%= job.state %></span>
+        </div>
+        <span class="text-muted" style="font-size:13px;text-align:right;">
+          Opens: <strong><%= fmtDate(job.opens_at) %></strong><br>Deadline: <strong><%= fmtDate(job.deadline) %></strong></span>
+      </div>
+      <p style="margin-top:14px;font-size:14px;line-height:1.6;white-space:pre-line;"><strong>Description:</strong> <%= job.description %></p>
+      <p style="margin-top:8px;font-size:14px;line-height:1.6;white-space:pre-line;"><strong>Requirements:</strong> <%= job.requirements %></p>
+      <p style="margin-top:8px;font-size:13px;color:#4a5568;">Minimum: <strong><%= job.min_qualification === 'None' ? 'No minimum qualification' : job.min_qualification %></strong>
+        <% if (job.min_qualification !== 'None') { %> degree level<% } %> &middot; <strong><%= job.min_experience_years %></strong> year(s) experience</p>
+
+      <div class="actions" style="margin-top:16px;">
+        <% if (isAdmin) { %>
+          <span class="text-muted" style="font-size:13px;"><%= job.application_count %> application(s)</span>
+          <a href="/vacancies/<%= job.id %>/applications" class="btn btn-secondary btn-sm">View Applications</a>
+          <% if (job.category === 'non-academic') { %>
+            <a href="/admin/vacancies/<%= job.id %>/questions" class="btn btn-secondary btn-sm">Question Bank</a>
+          <% } %>
+        <% } else if (!me) { %>
+          <% if (job.state === 'Open') { %><a href="/login" class="btn btn-primary btn-sm">Log in to apply</a><% } %>
+        <% } else if (myApps[job.id]) { %>
+          <span class="badge status-<%= myApps[job.id] %>">Applied &middot; <%= myApps[job.id] %></span>
+          <a href="/my-applications" class="btn btn-secondary btn-sm">Track application</a>
+        <% } else if (job.state === 'Open') { %>
+          <a href="/vacancies/<%= job.id %>/apply" class="btn btn-success btn-sm">Apply Now</a>
+        <% } else { %>
+          <button class="btn btn-secondary btn-sm" disabled><%= job.state === 'Upcoming' ? 'Not open yet' : 'Closed' %></button>
+        <% } %>
+      </div>
+    </div>
+  <% }) %>
   </div>
 <% } %>
-
 <%- include('partials/footer') %>

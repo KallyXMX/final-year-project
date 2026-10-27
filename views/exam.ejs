@@ -1,202 +1,48 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Online Examination - BUK Recruitment</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    }
-
-    body {
-      background-color: #f0f2f5;
-      color: #2d3748;
-      padding: 0 20px 40px 20px;
-    }
-
-    .sticky-timer {
-      position: sticky;
-      top: 0;
-      background-color: #e53e3e;
-      color: #ffffff;
-      text-align: center;
-      padding: 16px;
-      font-size: 20px;
-      font-weight: 700;
-      z-index: 1000;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      margin: 0 -20px 30px -20px;
-    }
-
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-    }
-
-    .exam-header {
-      background: #ffffff;
-      padding: 28px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-      margin-bottom: 24px;
-    }
-
-    .exam-header h1 {
-      font-size: 24px;
-      color: #1a202c;
-      margin-bottom: 8px;
-    }
-
-    .exam-header p {
-      color: #718096;
-      font-size: 15px;
-    }
-
-    .question-card {
-      background: #ffffff;
-      padding: 24px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-      margin-bottom: 20px;
-    }
-
-    .question-title {
-      font-size: 17px;
-      font-weight: 600;
-      color: #2d3748;
-      margin-bottom: 16px;
-      line-height: 1.4;
-    }
-
-    .options-group {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .option-label {
-      display: flex;
-      align-items: center;
-      padding: 12px 14px;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background-color 0.15s, border-color 0.15s;
-    }
-
-    .option-label:hover {
-      background-color: #f7fafc;
-      border-color: #cbd5e0;
-    }
-
-    .option-label input[type="radio"] {
-      margin-right: 12px;
-      accent-color: #2b6cb0;
-      cursor: pointer;
-    }
-
-    .submit-btn {
-      width: 100%;
-      padding: 14px;
-      background-color: #2b6cb0;
-      color: #ffffff;
-      border: none;
-      border-radius: 6px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 10px;
-      transition: background-color 0.2s;
-    }
-
-    .submit-btn:hover {
-      background-color: #2c5282;
-    }
-
-    .empty-state {
-      background: #ffffff;
-      padding: 48px;
-      text-align: center;
-      border-radius: 8px;
-      color: #718096;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    }
-  </style>
-</head>
-<body>
-  <div class="sticky-timer" id="timerDisplay">Time Remaining: 30:00</div>
-  <div class="container">
-    <div class="exam-header">
-      <h1>Online Examination</h1>
-      <% if (locals.vacancy) { %>
-        <p>Position: <strong><%= vacancy.title %></strong> (<%= vacancy.department %>)</p>
-      <% } %>
-    </div>
-
-    <% if (questions && questions.length > 0) { %>
-      <form id="examForm" action="/exam/<%= vacancyId %>/submit" method="POST">
-        <% questions.forEach((q, index) => { %>
-          <div class="question-card">
-            <div class="question-title">
-              <%= index + 1 %>. <%= q.question_text %>
-            </div>
-            <div class="options-group">
-              <label class="option-label">
-                <input type="radio" name="question_<%= q.id %>" value="A" required>
-                <span><strong>A:</strong> <%= q.option_a %></span>
-              </label>
-
-              <label class="option-label">
-                <input type="radio" name="question_<%= q.id %>" value="B" required>
-                <span><strong>B:</strong> <%= q.option_b %></span>
-              </label>
-
-              <label class="option-label">
-                <input type="radio" name="question_<%= q.id %>" value="C" required>
-                <span><strong>C:</strong> <%= q.option_c %></span>
-              </label>
-
-              <label class="option-label">
-                <input type="radio" name="question_<%= q.id %>" value="D" required>
-                <span><strong>D:</strong> <%= q.option_d %></span>
-              </label>
-            </div>
-          </div>
-        <% }); %>
-
-        <button type="submit" class="submit-btn">Submit Examination</button>
-      </form>
-    <% } else { %>
-      <div class="empty-state">
-        <p>No questions have been configured for this vacancy yet.</p>
-      </div>
-    <% } %>
+<%- include('partials/header', { pageTitle: 'Online test' }) %>
+<div class="exam-timer" id="timerDisplay" data-seconds="<%= view.remainingSeconds %>">Time remaining: --:--</div>
+<div class="wide-form" style="margin-top:16px;">
+  <div class="page-header">
+    <div><h1><%= view.name %></h1>
+      <p class="sub"><%= vacancy.title %> &middot; section <%= view.index + 1 %> of <%= view.total %> &middot; <%= view.minutes %> minutes</p></div>
   </div>
-
-  <script>
-    let timeLeft = 30 * 60; // 30 minutes in seconds
-    const timerDisplay = document.getElementById('timerDisplay');
-    const examForm = document.getElementById('examForm');
-
-    if (examForm) {
-      const countdown = setInterval(() => {
-        if (timeLeft <= 0) {
-          clearInterval(countdown);
-          timerDisplay.textContent = 'Time Remaining: 00:00';
-          alert('Time is up! Your exam will now be submitted automatically.');
-          examForm.submit();
-        } else {
-          const minutes = Math.floor(timeLeft / 60);
-          const seconds = Math.floor(timeLeft % 60);
-          timerDisplay.textContent = \`Time Remaining: \${minutes.toString().padStart(2, '0')}:\${seconds.toString().padStart(2, '0')}\`;
-          timeLeft--;
-        }
-      }, 1000);
+  <form id="examForm" action="/exam/<%= vacancy.id %>/submit" method="POST">
+    <%- include('partials/csrf') %>
+    <input type="hidden" name="section_index" value="<%= view.index %>">
+    <% view.questions.forEach((q, i) => { %>
+      <div class="question-card">
+        <div class="question-title"><%= i + 1 %>. <%= q.question_text %></div>
+        <% ['a','b','c','d'].forEach(o => { %>
+          <label class="option-label">
+            <input type="radio" name="q_<%= q.id %>" value="<%= o.toUpperCase() %>" <%= view.answers[q.id] === o.toUpperCase() ? 'checked' : '' %>>
+            <span><strong><%= o.toUpperCase() %>.</strong> <%= q['option_' + o] %></span>
+          </label>
+        <% }) %>
+      </div>
+    <% }) %>
+    <button type="submit" class="btn btn-primary" id="submitBtn"
+      onclick="return confirm('Submit this section? You cannot return to it.');">
+      <%= view.index + 1 < view.total ? 'Submit section and continue' : 'Submit test' %></button>
+  </form>
+</div>
+<script>
+  (function () {
+    var el = document.getElementById('timerDisplay');
+    var form = document.getElementById('examForm');
+    var end = Date.now() + Number(el.getAttribute('data-seconds')) * 1000; // server-supplied remaining time
+    var submitted = false;
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function tick() {
+      var left = Math.max(0, Math.round((end - Date.now()) / 1000));
+      el.textContent = 'Time remaining: ' + pad(Math.floor(left / 60)) + ':' + pad(left % 60);
+      if (left <= 60) el.classList.add('low');
+      if (left <= 0 && !submitted) {
+        submitted = true;
+        form.submit(); // auto-submit when the section time is up
+      }
     }
-  </script>
-</body>
-</html>
+    form.addEventListener('submit', function () { submitted = true; });
+    tick();
+    setInterval(tick, 1000);
+  })();
+</script>
+<%- include('partials/footer') %>

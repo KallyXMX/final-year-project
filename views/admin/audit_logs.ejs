@@ -1,85 +1,22 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Audit Logs - Admin Dashboard</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #f4f4f9;
-    }
-    .container {
-      max-width: 1000px;
-      margin: 2rem auto;
-      background: white;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    h1 {
-      color: #333;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 0.75rem;
-      text-align: left;
-    }
-    th {
-      background-color: #f8f9fa;
-      font-weight: bold;
-    }
-    tr:nth-child(even) {
-      background-color: #f2f2f2;
-    }
-    .back-link {
-      display: inline-block;
-      margin-bottom: 1rem;
-      color: #007bff;
-      text-decoration: none;
-    }
-    .back-link:hover {
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <a href="/dashboard" class="back-link">&larr; Back to Dashboard</a>
-    <h1>System Audit Logs</h1>
-    <table>
-      <thead>
-        <tr>
-          <th>Timestamp</th>
-          <th>User</th>
-          <th>Action</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% if (logs && logs.length > 0) { %>
-          <% logs.forEach(log => { %>
-            <tr>
-              <td><%= log.timestamp %></td>
-              <td><%= log.user_name ? log.user_name + ' (ID: ' + log.user_id + ')' : 'System / Unknown (ID: ' + log.user_id + ')' %></td>
-              <td><strong><%= log.action %></strong></td>
-              <td><%= log.description %></td>
-            </tr>
-          <% }) %>
-        <% } else { %>
-          <tr>
-            <td colspan="4" style="text-align: center;">No audit logs found.</td>
-          </tr>
-        <% } %>
-      </tbody>
-    </table>
-  </div>
-</body>
-</html>
+<%- include('../partials/header', { pageTitle: 'Audit log' }) %>
+<div class="page-header"><div><h1>System Audit Logs</h1><p class="sub"><%= total %> recorded action(s)</p></div>
+  <form method="GET" action="/admin/audit-logs" class="actions">
+    <select name="action" onchange="this.form.submit()" style="width:auto;">
+      <option value="">All actions</option>
+      <% actions.forEach(a => { %><option <%= a === action ? 'selected' : '' %>><%= a %></option><% }) %></select></form></div>
+<div class="table-wrap"><table>
+  <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Description</th><th>IP</th></tr></thead>
+  <tbody>
+  <% if (logs.length === 0) { %><tr><td colspan="5" style="text-align:center;">No audit logs found.</td></tr><% } %>
+  <% logs.forEach(l => { %>
+    <tr><td style="white-space:nowrap;"><%= fmtDateTime(l.timestamp) %></td>
+      <td><%= l.user_name ? l.user_name : (l.user_id ? 'User #' + l.user_id : 'System') %></td>
+      <td><strong><%= l.action %></strong></td><td><%= l.description %></td><td><%= l.ip || '' %></td></tr>
+  <% }) %>
+  </tbody></table></div>
+<div class="pager">
+  <% if (page > 1) { %><a href="?page=<%= page - 1 %>&action=<%= encodeURIComponent(action) %>">&larr; Newer</a><% } %>
+  <span>Page <%= page %> of <%= pages %></span>
+  <% if (page < pages) { %><a href="?page=<%= page + 1 %>&action=<%= encodeURIComponent(action) %>">Older &rarr;</a><% } %>
+</div>
+<%- include('../partials/footer') %>

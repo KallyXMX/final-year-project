@@ -1,175 +1,113 @@
-<%- include('partials/header', { user: { userId: user.id } }) %>
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<%- include('partials/header', { pageTitle: 'Dashboard' }) %>
 
-<div class="card mb-3">
-  <h1 style="font-size:26px; color:#1a202c; margin-bottom:6px;">Welcome, <%= user.name %>!</h1>
-  <p class="text-muted">Logged in as: <strong><%= user.email %></strong>
-    &nbsp;<span class="badge badge-info" style="text-transform:uppercase;"><%= user.role %></span>
-  </p>
+<div class="card">
+  <h1 style="font-size:24px;color:#1a202c;margin-bottom:6px;">Welcome, <%= user.name %>!</h1>
+  <p class="text-muted">Logged in as <strong><%= user.email %></strong>
+    <span class="badge badge-info" style="text-transform:uppercase;"><%= user.role %></span></p>
 </div>
 
-<% if (user.role === 'admin' && typeof analytics !== 'undefined' && analytics) { %>
-  <h2 style="font-size:18px; margin-bottom:16px; color:#2d3748;">System Overview</h2>
-  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom: 24px;">
-    <div class="card" style="border-left: 4px solid #4299e1; padding: 16px;">
-      <h3 style="font-size:14px; color:#718096; margin-bottom:4px; text-transform: uppercase;">Total Users</h3>
-      <p style="font-size:28px; font-weight:bold; color:#2d3748; margin:0;"><%= analytics.totalUsers %></p>
-    </div>
-    <div class="card" style="border-left: 4px solid #48bb78; padding: 16px;">
-      <h3 style="font-size:14px; color:#718096; margin-bottom:4px; text-transform: uppercase;">Active Jobs</h3>
-      <p style="font-size:28px; font-weight:bold; color:#2d3748; margin:0;"><%= analytics.totalVacancies %></p>
-    </div>
-    <div class="card" style="border-left: 4px solid #ecc94b; padding: 16px;">
-      <h3 style="font-size:14px; color:#718096; margin-bottom:4px; text-transform: uppercase;">Total Apps</h3>
-      <p style="font-size:28px; font-weight:bold; color:#2d3748; margin:0;"><%= analytics.totalApplications %></p>
-    </div>
-    <div class="card" style="border-left: 4px solid #9f7aea; padding: 16px;">
-      <h3 style="font-size:14px; color:#718096; margin-bottom:4px; text-transform: uppercase;">Average Score</h3>
-      <p style="font-size:28px; font-weight:bold; color:#2d3748; margin:0;"><%= analytics.averageScore %></p>
+<% if (user.role === 'admin' && analytics) { %>
+  <% if (analytics.awaitingShortlist > 0) { %>
+    <div class="alert alert-warn"><%= analytics.awaitingShortlist %> closed vacancy(ies) are awaiting shortlisting. It runs automatically within a minute, or run it from the vacancy's applicants page.</div>
+  <% } %>
+  <h2 style="font-size:18px;margin-bottom:14px;">System Overview</h2>
+  <div class="grid grid-auto mb-3">
+    <div class="card stat" style="border-color:#4299e1;margin:0"><h3>Applicant accounts</h3><p><%= analytics.totalUsers %></p></div>
+    <div class="card stat" style="border-color:#48bb78;margin:0"><h3>Open vacancies</h3><p><%= analytics.totalVacancies %></p></div>
+    <div class="card stat" style="border-color:#ecc94b;margin:0"><h3>Applications</h3><p><%= analytics.totalApplications %></p></div>
+    <div class="card stat" style="border-color:#9f7aea;margin:0"><h3>Average exam score</h3><p><%= analytics.averageScore %>%</p></div>
+  </div>
+
+  <div class="grid grid-2 mb-3">
+    <div class="card" style="margin:0"><h3 style="font-size:14px;color:#4a5568;margin-bottom:12px;">APPLICATION OUTCOMES (SHORTLISTING &amp; DECISIONS)</h3>
+      <div style="max-width:300px;margin:0 auto"><canvas id="statusChart" aria-label="Application status chart" role="img"></canvas></div></div>
+    <div class="card" style="margin:0"><h3 style="font-size:14px;color:#4a5568;margin-bottom:12px;">APPLICANT VOLUME PER VACANCY</h3>
+      <canvas id="volumeChart" aria-label="Applications per vacancy chart" role="img"></canvas></div>
+    <div class="card" style="margin:0"><h3 style="font-size:14px;color:#4a5568;margin-bottom:12px;">EXAM PASS RATE</h3>
+      <% if (analytics.examOutcome.passed + analytics.examOutcome.failed === 0) { %>
+        <p class="text-muted">No exams have been completed yet.</p>
+      <% } else { %>
+        <div style="max-width:300px;margin:0 auto"><canvas id="passChart" aria-label="Exam pass rate chart" role="img"></canvas></div>
+      <% } %>
     </div>
   </div>
 
-  <!-- Application Status Chart -->
-  <div class="card" style="margin-bottom: 24px; padding: 20px;">
-    <h3 style="font-size:15px; color:#4a5568; text-transform:uppercase; margin-bottom:16px; letter-spacing:0.05em;">Application Status Distribution</h3>
-    <div style="max-width: 340px; margin: 0 auto;">
-      <canvas id="recruitmentChart" aria-label="Application status doughnut chart" role="img"></canvas>
-    </div>
-  </div>
-
+  <script src="/vendor/chart.js/chart.umd.js"></script>
   <script>
     (function () {
-      const counts = <%- JSON.stringify(analytics.statusCounts) %>;
-      const ctx = document.getElementById('recruitmentChart').getContext('2d');
-      new Chart(ctx, {
+      if (typeof Chart === 'undefined') return;
+      var status = <%- JSON.stringify(analytics.statusCounts) %>;
+      var perVacancy = <%- JSON.stringify(analytics.perVacancy) %>;
+      var exam = <%- JSON.stringify(analytics.examOutcome) %>;
+      new Chart(document.getElementById('statusChart'), {
         type: 'doughnut',
-        data: {
-          labels: Object.keys(counts),
-          datasets: [{
-            data: Object.values(counts),
-            backgroundColor: ['#ecc94b','#4299e1','#9f7aea','#fc8181','#68d391'],
-            borderColor:     ['#d69e2e','#2b6cb0','#6b46c1','#e53e3e','#38a169'],
-            borderWidth: 2,
-            hoverOffset: 8
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { position: 'bottom', labels: { padding: 16, font: { size: 13 } } },
-            tooltip: {
-              callbacks: {
-                label: function(ctx) {
-                  const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                  const pct   = total ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
-                  return ` ${ctx.label}: ${ctx.parsed} (${pct}%)`;
-                }
-              }
-            }
-          }
-        }
+        data: { labels: Object.keys(status), datasets: [{ data: Object.values(status),
+          backgroundColor: ['#a0aec0','#4299e1','#9f7aea','#68d391','#fc8181'] }] },
+        options: { plugins: { legend: { position: 'bottom' } } }
       });
+      new Chart(document.getElementById('volumeChart'), {
+        type: 'bar',
+        data: { labels: perVacancy.map(function (v) { return v.title.length > 22 ? v.title.slice(0, 20) + '…' : v.title; }),
+          datasets: [{ label: 'Applications', data: perVacancy.map(function (v) { return v.apps; }), backgroundColor: '#4299e1' }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+      });
+      var p = document.getElementById('passChart');
+      if (p) new Chart(p, { type: 'doughnut',
+        data: { labels: ['Passed', 'Failed'], datasets: [{ data: [exam.passed, exam.failed], backgroundColor: ['#68d391', '#fc8181'] }] },
+        options: { plugins: { legend: { position: 'bottom' } } } });
     })();
   </script>
 
-<% } %>
+  <h2 style="font-size:18px;margin-bottom:14px;">Quick actions</h2>
+  <div class="grid grid-auto">
+    <div class="card" style="border-top:4px solid #2b6cb0;margin:0"><h3 style="font-size:17px;margin-bottom:8px;">Post a vacancy</h3>
+      <p class="text-muted mb-2" style="font-size:14px;">Create a vacancy with requirements, opening date and deadline.</p>
+      <a href="/vacancies/create" class="btn btn-primary">Post a New Vacancy</a></div>
+    <div class="card" style="border-top:4px solid #2b6cb0;margin:0"><h3 style="font-size:17px;margin-bottom:8px;">Vacancies &amp; applicants</h3>
+      <p class="text-muted mb-2" style="font-size:14px;">Review applicants, shortlist, schedule exams and manage the question bank.</p>
+      <a href="/vacancies" class="btn btn-primary">Manage Vacancies</a></div>
+    <div class="card" style="border-top:4px solid #805ad5;margin:0"><h3 style="font-size:17px;margin-bottom:8px;">Reports &amp; exports</h3>
+      <p class="text-muted mb-2" style="font-size:14px;">Applicants, shortlist, merit lists and statistics as PDF or CSV.</p>
+      <a href="/admin/reports" class="btn btn-primary" style="background:#553c9a">Open Reports</a></div>
+  </div>
 
-<h2 style="font-size:18px; margin-bottom:16px; color:#2d3748;">Dashboard Actions</h2>
+<% } else { %>
+  <% const toExam = myApplications.filter(a => a.category === 'non-academic' && a.status === 'Shortlisted' && !a.exam_completed); %>
+  <% if (toExam.length > 0) { %>
+    <div class="alert alert-info"><strong>You have been shortlisted.</strong> Your computer-based test is waiting in
+      <a href="/my-applications">My Applications</a>.</div>
+  <% } %>
 
-<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(270px,1fr)); gap:20px;">
-  <% if (user.role === 'admin') { %>
-    <div class="card" style="border-top: 4px solid #2b6cb0;">
-      <h3 style="font-size:17px; margin-bottom:8px;">Post a New Vacancy</h3>
-      <p class="text-muted mb-2" style="font-size:14px;">Create and publish new employment vacancies for prospective applicants.</p>
-      <a href="/vacancies/create" class="btn btn-primary">Post a New Vacancy</a>
-    </div>
-
-    <div class="card" style="border-top: 4px solid #2b6cb0;">
-      <h3 style="font-size:17px; margin-bottom:8px;">Manage Exam Questions</h3>
-      <p class="text-muted mb-2" style="font-size:14px;">Configure examination questions for active recruitment vacancies.</p>
-      <a href="/questions/create" class="btn btn-primary">Manage Exam Questions</a>
-    </div>
-
-    <div class="card" style="border-top: 4px solid #2b6cb0;">
-      <h3 style="font-size:17px; margin-bottom:8px;">View All Vacancies</h3>
-      <p class="text-muted mb-2" style="font-size:14px;">Browse and manage all active job vacancies and review applicants.</p>
-      <a href="/vacancies" class="btn btn-primary">View All Vacancies</a>
-    </div>
-
-    <div class="card" style="border-top: 4px solid #805ad5;">
-      <h3 style="font-size:17px; margin-bottom:8px;">HR Reports & Exports</h3>
-      <p class="text-muted mb-2" style="font-size:14px;">Download comprehensive recruitment metrics and passed applicant lists.</p>
-      <div style="display:flex; flex-direction:column; gap:8px;">
-        <a href="/admin/reports/pdf" class="btn btn-primary" style="background-color:#553c9a; border:none;">Download PDF Merit List</a>
-        <a href="/admin/reports/csv" class="btn btn-secondary" style="background-color:#e9d8fd; color:#44337a; border:none; text-align:center; padding:10px; border-radius:4px; text-decoration:none; font-weight:bold;">Download CSV Report</a>
-      </div>
-    </div>
-  <% } else { %>
-    <% if (locals.error) { %>
-      <div class="alert alert-danger" style="background-color: #fed7d7; color: #742a2a; padding: 12px; border-radius: 4px; margin-bottom: 20px; width: 100%;"><%= error %></div>
-    <% } %>
-
-    <% const shortlistedApps = myApplications ? myApplications.filter(a => a.status === 'Shortlisted' && a.exam_completed === 0) : []; %>
-    <% if (shortlistedApps.length > 0) { %>
-      <div style="grid-column: 1 / -1; background-color: #ebf8ff; color: #2b6cb0; padding: 15px; border-radius: 5px; border-left: 4px solid #3182ce; margin-bottom: 10px;">
-        <strong style="display: block; margin-bottom: 8px;">🔔 Notification:</strong> 
-        You have been shortlisted for one or more vacancies! Please proceed to take your CBT Exam.
-        <ul style="margin-top: 10px; padding-left: 20px;">
-          <% shortlistedApps.forEach(app => { %>
-            <li style="margin-bottom: 5px;">
-              <%= app.vacancy_title %> - 
-              <a href="/exam/<%= app.vacancy_id %>" style="background-color: #3182ce; color: white; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: bold; margin-left: 8px;">Take CBT Exam</a>
-            </li>
-          <% }); %>
-        </ul>
-      </div>
-    <% } %>
-
-    <div class="card" style="border-top: 4px solid #38a169;">
-      <h3 style="font-size:17px; margin-bottom:8px;">View Open Vacancies</h3>
-      <p class="text-muted mb-2" style="font-size:14px;">Browse all active vacancies at Bayero University Kano and apply.</p>
-      <a href="/vacancies" class="btn btn-primary">View Open Vacancies</a>
-    </div>
-
-    <div style="grid-column: 1 / -1; margin-top: 20px;">
-      <h3 style="margin-bottom: 15px; color:#2d3748;">My Submissions</h3>
-      <% if (myApplications && myApplications.length > 0) { %>
-        <div style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-            <thead>
-              <tr style="background: #f7fafc; border-bottom: 1px solid #e2e8f0; text-align: left;">
-                <th style="padding: 12px 16px; color:#4a5568;">Vacancy Title</th>
-                <th style="padding: 12px 16px; color:#4a5568;">Application Date</th>
-                <th style="padding: 12px 16px; color:#4a5568;">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% myApplications.forEach(app => { %>
-                <tr style="border-bottom: 1px solid #e2e8f0;">
-                  <td style="padding: 12px 16px;"><%= app.vacancy_title %></td>
-                  <td style="padding: 12px 16px;"><%= new Date(app.applied_at).toLocaleDateString() %></td>
-                  <td style="padding: 12px 16px;">
-                    <% if (app.status === 'Pending') { %>
-                      <span style="background: #edf2f7; color: #4a5568; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">Pending</span>
-                    <% } else if (app.status === 'Shortlisted' || app.status === 'Recommended' || app.status === 'Accepted') { %>
-                      <span style="background: #c6f6d5; color: #22543d; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;"><%= app.status %></span>
-                    <% } else if (app.status === 'Rejected') { %>
-                      <span style="background: #fed7d7; color: #742a2a; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">Rejected</span>
-                    <% } else { %>
-                      <span style="background: #edf2f7; color: #4a5568; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;"><%= app.status %></span>
-                    <% } %>
-                  </td>
-                </tr>
-              <% }); %>
-            </tbody>
-          </table>
-        </div>
+  <div class="grid grid-2">
+    <div>
+      <h2 style="font-size:18px;margin-bottom:14px;">Recent notifications</h2>
+      <% if (notifications.length === 0) { %>
+        <div class="empty">No notifications yet.</div>
       <% } else { %>
-        <p style="color: #718096; background: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">You have not submitted any applications yet.</p>
+        <% notifications.forEach(n => { %>
+          <div class="notice <%= n.is_read ? '' : 'notice-unread' %>">
+            <%= n.message %><small><%= fmtDateTime(n.created_at) %></small>
+          </div>
+        <% }) %>
+        <a href="/notifications">View all notifications &rarr;</a>
       <% } %>
     </div>
-  <% } %>
-</div>
-
+    <div>
+      <h2 style="font-size:18px;margin-bottom:14px;">My submissions</h2>
+      <% if (myApplications.length === 0) { %>
+        <div class="empty">You have not applied for any vacancy yet.<br><a href="/vacancies">Browse open vacancies &rarr;</a></div>
+      <% } else { %>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Vacancy</th><th>Applied</th><th>Status</th></tr></thead>
+          <tbody>
+          <% myApplications.forEach(a => { %>
+            <tr><td><%= a.vacancy_title %></td><td><%= fmtDate(a.applied_at) %></td>
+              <td><span class="badge status-<%= a.status %>"><%= a.status %></span></td></tr>
+          <% }) %>
+          </tbody></table></div>
+        <p class="mt-1"><a href="/my-applications">Track my applications in detail &rarr;</a></p>
+      <% } %>
+    </div>
+  </div>
+<% } %>
 <%- include('partials/footer') %>

@@ -1,147 +1,47 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create Vacancy - BUK Recruitment</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    }
-
-    body {
-      background-color: #f0f2f5;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      padding: 40px 20px;
-    }
-
-    .form-card {
-      background-color: #ffffff;
-      padding: 36px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      width: 100%;
-      max-width: 560px;
-    }
-
-    .header-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-    }
-
-    h2 {
-      color: #1a202c;
-      font-size: 24px;
-    }
-
-    .back-link {
-      color: #3182ce;
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 500;
-    }
-
-    .back-link:hover {
-      text-decoration: underline;
-    }
-
-    .form-group {
-      margin-bottom: 18px;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 6px;
-      font-weight: 500;
-      color: #4a5568;
-      font-size: 14px;
-    }
-
-    input[type="text"],
-    input[type="date"],
-    textarea {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #cbd5e0;
-      border-radius: 6px;
-      font-size: 15px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    textarea {
-      resize: vertical;
-      min-height: 90px;
-    }
-
-    input:focus,
-    textarea:focus {
-      border-color: #3182ce;
-      box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15);
-    }
-
-    button[type="submit"] {
-      width: 100%;
-      padding: 12px;
-      background-color: #2b6cb0;
-      color: #ffffff;
-      border: none;
-      border-radius: 6px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 8px;
-      transition: background-color 0.2s;
-    }
-
-    button[type="submit"]:hover {
-      background-color: #2c5282;
-    }
-  </style>
-</head>
-<body>
-  <div class="form-card">
-    <div class="header-row">
-      <h2>Post New Vacancy</h2>
-      <a href="/vacancies" class="back-link">&larr; Back to Vacancies</a>
-    </div>
-
+<%- include('partials/header', { pageTitle: 'Post vacancy' }) %>
+<div class="wide-form">
+  <div class="page-header"><h1>Post New Vacancy</h1><a href="/vacancies">&larr; Back to Vacancies</a></div>
+  <div class="card">
+    <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
     <form action="/vacancies/create" method="POST">
-      <div class="form-group">
-        <label for="title">Job Title</label>
-        <input type="text" id="title" name="title" placeholder="e.g. Senior Lecturer" required>
+      <%- include('partials/csrf') %>
+      <div class="form-row">
+        <div class="form-group"><label for="title">Position title</label>
+          <input type="text" id="title" name="title" value="<%= values.title || '' %>" placeholder="e.g. Lecturer II" required maxlength="150"></div>
+        <div class="form-group"><label for="department">Department</label>
+          <input type="text" id="department" name="department" value="<%= values.department || '' %>" placeholder="e.g. Computer Science" required maxlength="150"></div>
       </div>
-
-      <div class="form-group">
-        <label for="department">Department</label>
-        <input type="text" id="department" name="department" placeholder="e.g. Department of Computer Science" required>
+      <div class="form-group"><label for="category">Recruitment type</label>
+        <select id="category" name="category">
+          <option value="non-academic" <%= values.category !== 'academic' ? 'selected' : '' %>>Non-academic (aptitude + computer literacy tests)</option>
+          <option value="academic" <%= values.category === 'academic' ? 'selected' : '' %>>Academic (qualification points, no online test)</option>
+        </select>
+        <p class="hint">Academic and non-academic vacancies follow different workflows after shortlisting.</p></div>
+      <div class="form-group"><label for="description">Job description</label>
+        <textarea id="description" name="description" required><%= values.description || '' %></textarea></div>
+      <div class="form-group"><label for="requirements">Application requirements (shown to applicants)</label>
+        <textarea id="requirements" name="requirements" required><%= values.requirements || '' %></textarea></div>
+      <fieldset><legend>Minimum criteria used for automatic shortlisting</legend>
+        <div class="form-row">
+          <div class="form-group"><label for="min_qualification">Minimum qualification</label>
+            <select id="min_qualification" name="min_qualification">
+              <% [['None','No minimum'],['Bachelor',"Bachelor's / HND"],['Master',"Master's degree"],['PhD','PhD / Doctorate']].forEach(o => { %>
+                <option value="<%= o[0] %>" <%= values.min_qualification === o[0] ? 'selected' : '' %>><%= o[1] %></option>
+              <% }) %>
+            </select></div>
+          <div class="form-group"><label for="min_experience_years">Minimum experience (years)</label>
+            <input type="number" id="min_experience_years" name="min_experience_years" min="0" max="60" value="<%= values.min_experience_years ?? 0 %>"></div>
+        </div>
+      </fieldset>
+      <div class="form-row">
+        <div class="form-group"><label for="opens_at">Applications open on</label>
+          <input type="date" id="opens_at" name="opens_at" value="<%= values.opens_at || '' %>" required></div>
+        <div class="form-group"><label for="deadline">Application deadline</label>
+          <input type="date" id="deadline" name="deadline" value="<%= values.deadline || '' %>" required></div>
       </div>
-
-      <div class="form-group">
-        <label for="description">Job Description</label>
-        <textarea id="description" name="description" placeholder="Provide an overview of job responsibilities" required></textarea>
-      </div>
-
-      <div class="form-group">
-        <label for="requirements">Requirements</label>
-        <textarea id="requirements" name="requirements" placeholder="List required qualifications and skills" required></textarea>
-      </div>
-
-      <div class="form-group">
-        <label for="deadline">Application Deadline</label>
-        <input type="date" id="deadline" name="deadline" required>
-      </div>
-
-      <button type="submit">Publish Vacancy</button>
+      <p class="hint mb-2">Recruitment opens and closes automatically on these dates. Auto-shortlisting runs after the deadline.</p>
+      <button type="submit" class="btn btn-primary">Publish Vacancy</button>
     </form>
   </div>
-</body>
-</html>
+</div>
+<%- include('partials/footer') %>

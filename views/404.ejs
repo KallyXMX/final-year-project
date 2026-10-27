@@ -1,7 +1,7 @@
-<%- include('partials/header', { user: locals.user || null }) %>
-<div style="text-align: center; padding: 80px 20px;">
-  <h1 style="font-size: 48px; color: #2d3748; margin-bottom: 10px;">404 - Page Not Found</h1>
-  <p style="font-size: 18px; color: #718096; margin-bottom: 30px;">The page you are looking for does not exist or has been moved.</p>
-  <a href="/dashboard" class="btn btn-primary" style="padding: 10px 20px; font-size: 16px;">Return to Dashboard</a>
+<%- include('partials/header', { pageTitle: 'Page not found' }) %>
+<div class="card text-center">
+  <h1 style="font-size:28px;margin-bottom:8px;">404 &mdash; Page not found</h1>
+  <p class="text-muted mb-2"><%= locals.reason || 'The page you are looking for does not exist.' %></p>
+  <a href="/dashboard" class="btn btn-primary btn-auto">Back to dashboard</a>
 </div>
 <%- include('partials/footer') %>

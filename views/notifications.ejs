@@ -1,0 +1,16 @@
+<%- include('partials/header', { pageTitle: 'Notifications' }) %>
+<div class="page-header"><h1>Notifications</h1>
+  <% if (unreadCount > 0) { %>
+    <form action="/notifications/read-all" method="POST"><%- include('partials/csrf') %>
+      <button class="btn btn-secondary btn-sm">Mark all as read</button></form>
+  <% } %>
+</div>
+<% if (notifications.length === 0) { %><div class="empty">You have no notifications.</div><% } %>
+<% notifications.forEach(n => { %>
+  <div class="notice <%= n.is_read ? '' : 'notice-unread' %>">
+    <%= n.message %>
+    <% if (n.link) { %> <a href="<%= n.link %>">Open &rarr;</a><% } %>
+    <small><%= fmtDateTime(n.created_at) %></small>
+  </div>
+<% }) %>
+<%- include('partials/footer') %>

@@ -1,188 +1,50 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Applications - BUK Recruitment</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    }
+<%- include('partials/header', { pageTitle: 'My applications' }) %>
+<div class="page-header"><h1>My Applications</h1><a href="/vacancies" class="btn btn-secondary btn-sm">Browse vacancies</a></div>
 
-    body {
-      background-color: #f0f2f5;
-      color: #2d3748;
-      padding: 40px 20px;
-    }
-
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 28px;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-
-    h1 {
-      font-size: 26px;
-      color: #1a202c;
-    }
-
-    .back-link {
-      color: #3182ce;
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 500;
-    }
-
-    .back-link:hover {
-      text-decoration: underline;
-    }
-
-    .table-container {
-      background: #ffffff;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-      overflow-x: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-    }
-
-    th {
-      background-color: #f7fafc;
-      padding: 14px 18px;
-      font-size: 13px;
-      font-weight: 600;
-      color: #4a5568;
-      text-transform: uppercase;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    td {
-      padding: 16px 18px;
-      font-size: 14px;
-      border-bottom: 1px solid #edf2f7;
-      vertical-align: middle;
-    }
-
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    .job-title {
-      font-weight: 600;
-      color: #2b6cb0;
-      font-size: 15px;
-    }
-
-    .department {
-      color: #718096;
-      font-size: 13px;
-      margin-top: 2px;
-    }
-
-    .status-badge {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 9999px;
-      font-size: 12px;
-      font-weight: 600;
-      background-color: #fefcbf;
-      color: #744210;
-    }
-
-    .btn-exam {
-      display: inline-block;
-      padding: 8px 16px;
-      background-color: #3182ce;
-      color: #ffffff;
-      text-decoration: none;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      transition: background-color 0.2s;
-    }
-
-    .btn-exam:hover {
-      background-color: #2b6cb0;
-    }
-
-    .empty-state {
-      background: #ffffff;
-      padding: 48px;
-      text-align: center;
-      border-radius: 8px;
-      color: #718096;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    }
-
-    .empty-state a {
-      color: #3182ce;
-      text-decoration: none;
-      font-weight: 600;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <header>
-      <h1>My Applications</h1>
-      <a href="/dashboard" class="back-link">&larr; Back to Dashboard</a>
-    </header>
-
-    <% if (applications && applications.length > 0) { %>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Job Title</th>
-              <th>Status</th>
-              <th>Applied Date</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% applications.forEach(app => { %>
-              <tr>
-                <td>
-                  <div class="job-title"><%= app.job_title %></div>
-                  <% if (app.department) { %>
-                    <div class="department"><%= app.department %></div>
-                  <% } %>
-                </td>
-                <td>
-                  <span class="status-badge"><%= app.status %></span>
-                </td>
-                <td>
-                  <%= new Date(app.applied_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) %>
-                </td>
-                <td>
-                  <a href="/exam/<%= app.vacancy_id %>" class="btn-exam">Take Exam</a>
-                </td>
-              </tr>
-            <% }); %>
-          </tbody>
-        </table>
+<% if (applications.length === 0) { %>
+  <div class="empty">You haven't submitted any applications yet.<br><a href="/vacancies">Explore available vacancies &rarr;</a></div>
+<% } else { %>
+  <% applications.forEach(a => {
+       const nonAcad = a.category === 'non-academic';
+       const steps = [];
+       steps.push({ t: 'Applied', c: 'done' });
+       const decided = a.status !== 'Pending';
+       steps.push({ t: 'Shortlisting', c: !decided ? 'current' : (a.shortlisted ? 'done' : 'bad') });
+       if (a.shortlisted || !decided) {
+         if (nonAcad) steps.push({ t: 'CBT exam', c: a.exam_completed ? 'done' : (a.shortlisted && a.status === 'Shortlisted' ? 'current' : '') });
+         else steps.push({ t: 'Qualification evaluation', c: a.shortlisted ? 'done' : '' });
+         steps.push({ t: 'Physical interview', c: ['Recommended','Accepted'].includes(a.status) ? 'done' : (a.status === 'Shortlisted' && (a.exam_completed || !nonAcad) ? 'current' : '') });
+         steps.push({ t: 'Final decision', c: a.status === 'Accepted' ? 'done' : (a.status === 'Rejected' && a.shortlisted ? 'bad' : '') });
+       }
+  %>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div><h2 style="font-size:18px;"><%= a.job_title %></h2>
+          <p class="text-muted" style="font-size:13px;"><%= a.department %> &middot; <%= nonAcad ? 'Non-academic' : 'Academic' %> &middot; applied <%= fmtDate(a.applied_at) %></p></div>
+        <div><span class="badge status-<%= a.status %>" style="font-size:13px;"><%= a.status %></span></div>
       </div>
-    <% } else { %>
-      <div class="empty-state">
-        <p>You haven't submitted any job applications yet.</p>
-        <p style="margin-top: 10px;"><a href="/vacancies">Explore available vacancies &rarr;</a></p>
-      </div>
-    <% } %>
-  </div>
-</body>
-</html>
+      <ul class="timeline"><% steps.forEach(s => { %><li class="<%= s.c %>"><%= s.t %></li><% }) %></ul>
+      <% if (a.status_note) { %><p style="font-size:13px;color:#4a5568;margin-top:8px;"><%= a.status_note %></p><% } %>
+      <% if (a.status === 'Pending') { %><p style="font-size:13px;color:#4a5568;margin-top:8px;">Your application is under review. Shortlisting happens automatically after the closing date (<%= fmtDate(a.deadline) %>).</p><% } %>
+
+      <% if (nonAcad && a.shortlisted && a.status === 'Shortlisted' && !a.exam_completed) { %>
+        <div class="alert alert-info" style="margin-top:12px;margin-bottom:0;">
+          <% if (a.exam_start && a.exam_end) { %>
+            Test window: <strong><%= fmtDateTime(a.exam_start) %></strong> to <strong><%= fmtDateTime(a.exam_end) %></strong>.
+          <% } else { %>The tests have not been scheduled yet. You will be notified.<% } %>
+          <% if (a.canTakeExam) { %><br><a href="/exam/<%= a.vid %>" class="btn btn-primary btn-sm btn-auto" style="margin-top:8px;">Take / continue the test</a>
+          <% } else if (a.examNote) { %><br><em><%= a.examNote %></em><% } %>
+        </div>
+      <% } %>
+      <% if (a.exam_completed) { %>
+        <p style="margin-top:10px;font-size:14px;">Exam result: <strong><%= a.exam_correct %>/<%= a.exam_total %> (<%= (+a.exam_pct).toFixed(1) %>%)</strong>
+          <span class="badge <%= a.exam_passed ? 'badge-success' : 'badge-danger' %>"><%= a.exam_passed ? 'Passed' : 'Below pass mark' %></span>
+          <a href="/exam/<%= a.vid %>/result" style="margin-left:8px;">View details</a></p>
+      <% } %>
+      <p style="margin-top:10px;font-size:13px;">
+        <a href="/applications/<%= a.id %>/documents/cv">My CV</a> &middot;
+        <a href="/applications/<%= a.id %>/documents/supporting">My supporting documents</a></p>
+    </div>
+  <% }) %>
+<% } %>
+<%- include('partials/footer') %>
