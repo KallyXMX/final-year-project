@@ -97,7 +97,11 @@ const run = async () => {
     const pubs = o.pubs || 0, sems = o.sems || 0;
     const score = o.academic ? academicBreakdown({ highest_qualification: o.highest_qualification, experience_years: o.experience_years, journal_publications_count: pubs, seminars_attended: sems }).total : 0;
     insertApp.run({ user_id: uid(email), vacancy_id, status: 'Pending', status_note: null, shortlisted: 0, exam_completed: 0, exam_score: null,
-      qualifications_text: o.highest_qualification, experience_text: '', publications_text: '', seminars_text: '', academic_score: score, pubs, sems, ...o });
+      qualifications_text: o.highest_qualification,
+      experience_text: o.experience_years ? `${o.experience_years} year(s) relevant experience` : '',
+      publications_text: Array.from({ length: pubs }, (_, i) => `Journal article ${i + 1}`).join('\n'),
+      seminars_text: Array.from({ length: sems }, (_, i) => `Seminar / workshop ${i + 1}`).join('\n'),
+      academic_score: score, pubs, sems, ...o });
   };
 
   // Open vacancies: pending applications (shortlisting runs automatically after the deadline).
@@ -115,6 +119,11 @@ const run = async () => {
   });
   addApp('fiona@test.com', closedId, { highest_qualification: 'Other', experience_years: 0, status: 'Rejected',
     status_note: "Did not meet the requirements: minimum qualification is Bachelor's Degree / HND; minimum experience is 2 year(s).", shortlisted: 0 });
+
+  const note = db.prepare('INSERT INTO notifications (user_id, message) VALUES (?, ?)');
+  note.run(uid('diana@test.com'), 'You have been shortlisted for Records Officer. Complete the online test in the scheduled window.');
+  note.run(uid('diana@test.com'), 'Your test result for Records Officer is available: 80.0% (Passed).');
+  note.run(uid('alice@test.com'), 'Your application for Lecturer II - Computer Science has been received.');
 
   const log = db.prepare('INSERT INTO audit_logs (user_id, action, description) VALUES (?, ?, ?)');
   log.run(1, 'VACANCY_CREATED', 'Created demo vacancies (seed).');
