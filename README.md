@@ -5,9 +5,9 @@ This is a full-stack Node.js MVC application designed to automate Bayero Univers
 ## Tech Stack & Features
 
 **Core Technologies:**
-- **Backend:** Node.js, Express.js
-- **Database:** better-sqlite3
-- **Templating:** EJS (Embedded JavaScript)
+- **Frontend / Views:** HTML5, CSS3, JavaScript, EJS templating (server-rendered pages)
+- **Backend / Application:** Node.js, Express.js
+- **Database:** SQLite (via better-sqlite3)
 - **Security:** bcrypt (password hashing), express-session (SQLite-backed sessions), CSRF tokens
 - **File Uploads:** multer (private storage, served only to the owner or HR)
 - **Reports / Charts:** PDFKit (PDF), csv-writer (CSV), Chart.js (HR dashboard)
