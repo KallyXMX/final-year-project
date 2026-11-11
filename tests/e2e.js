@@ -175,6 +175,26 @@ class Client {
   }
   r = await admin.req('GET', '/dashboard'); check('Admin analytics dashboard (Chart.js)', r.status === 200 && /chart/i.test(r.text));
 
+  // ---- HR tools and pages that read through the service layer
+  r = await admin.post(`/admin/applications/${aid}/academic-score`, { highest_qualification: 'PhD', experience_years: 5, journal_publications_count: 2, seminars_attended: 1 });
+  check('HR recalculates academic score (40 + 25 + 8 + 2 = 75)', r.status === 302 && db.prepare('SELECT academic_score s FROM applications WHERE id=?').get(aid).s === 75);
+  r = await admin.req('GET', `/admin/vacancies/${vNA.id}/exam`); check('Exam settings page', r.status === 200 && /Pass mark/.test(r.text));
+  r = await admin.req('GET', `/admin/vacancies/${vNA.id}/questions`); check('Question bank page', r.status === 200 && /Existing questions \(8\)/.test(r.text));
+  const q1 = db.prepare('SELECT id FROM questions LIMIT 1').get().id;
+  r = await admin.post(`/questions/${q1}/delete`, {}); check('Question cannot be deleted after exam started', db.prepare('SELECT COUNT(*) c FROM questions').get().c === 8 && /cannot/i.test(decodeURIComponent(r.loc || '')));
+  r = await admin.post(`/applications/${aid}/status`, { status: 'Accepted' }); check('HR accepts a recommended candidate', db.prepare('SELECT status s FROM applications WHERE id=?').get(aid).s === 'Accepted');
+  r = await admin.req('GET', '/admin/audit-logs?action=LOGIN'); check('Audit log filter by action', r.status === 200 && /LOGIN/.test(r.text));
+  r = await admin.req('GET', `/vacancies/${vNA.id}/applications`); check('HR applicants-per-vacancy page', r.status === 200 && r.text.includes('good@t.com'));
+  r = await mkVac({ title: 'Temp', department: 'X', category: 'non-academic' });
+  const vTemp = db.prepare("SELECT id FROM vacancies WHERE title='Temp'").get().id;
+  await admin.post(`/admin/vacancies/${vTemp}/close`, {}); const closed = db.prepare('SELECT closed_at c FROM vacancies WHERE id=?').get(vTemp).c;
+  await admin.post(`/admin/vacancies/${vTemp}/reopen`, {}); const reopened = db.prepare('SELECT closed_at c FROM vacancies WHERE id=?').get(vTemp).c;
+  check('HR closes and reopens a vacancy', !!closed && reopened === null);
+  r = await good.req('GET', '/dashboard'); check('Applicant dashboard shows notifications', r.status === 200 && /Recent notifications/.test(r.text));
+  tok = await good.token('/notifications');
+  await good.req('POST', '/notifications/read-all', { form: { _csrf: tok } });
+  check('Mark all notifications read', db.prepare("SELECT COUNT(*) c FROM notifications WHERE user_id=(SELECT id FROM users WHERE email='good@t.com') AND is_read=0").get().c === 0);
+
   // ---- 4.8 security
   const row = db.prepare("SELECT password FROM users WHERE email='good@t.com'").get(); check('Passwords stored as bcrypt hashes', /^\$2[aby]\$/.test(row.password));
   r = await admin.req('GET', '/admin/audit-logs'); check('Audit log page', r.status === 200);

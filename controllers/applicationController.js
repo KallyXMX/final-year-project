@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const db = require('../models/db');
+const vacanciesSvc = require('../services/vacancies');
+const applicationsSvc = require('../services/applications');
+const questionsSvc = require('../services/questions');
 const { logAction } = require('../services/audit');
 const { notify } = require('../services/notifications');
 const { shortlistVacancy } = require('../services/shortlisting');
@@ -14,39 +16,21 @@ const { uploadDir } = require('../middlewares/upload');
 // ------------------------------------------------------------ all applicants (search / filter)
 
 const getAllApplications = (req, res) => {
-  const { search, status, vacancy_id } = req.query;
-  let sql = `
-    SELECT a.*, u.name AS applicant_name, u.email AS applicant_email, v.title AS vacancy_title, v.category,
-           er.score, er.total_questions, er.percentage
-    FROM applications a
-    JOIN users u ON a.user_id = u.id
-    JOIN vacancies v ON a.vacancy_id = v.id
-    LEFT JOIN exam_results er ON er.user_id = a.user_id AND er.vacancy_id = a.vacancy_id
-    WHERE 1=1`;
-  const params = [];
-  if (search) { sql += ' AND (u.name LIKE ? OR u.email LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
-  if (status) { sql += ' AND a.status = ?'; params.push(status); }
-  if (vacancy_id) { sql += ' AND a.vacancy_id = ?'; params.push(vacancy_id); }
-  sql += ' ORDER BY a.applied_at DESC LIMIT 500';
-  const applications = db.prepare(sql).all(...params);
-  const vacancies = db.prepare('SELECT id, title FROM vacancies ORDER BY title ASC').all();
-  res.render('admin/applications', { applications, vacancies, query: req.query });
+  res.render('admin/applications', {
+    applications: applicationsSvc.search(req.query),
+    vacancies: vacanciesSvc.listTitles(),
+    query: req.query
+  });
 };
 
 // ------------------------------------------------------------ applicant detail / panel summary (4.5)
 
 const renderApplicationDetail = (req, res) => {
-  const application = db.prepare(`
-    SELECT a.*, u.name AS applicant_name, u.email AS applicant_email, v.title AS vacancy_title, v.department,
-           v.category, v.min_qualification, v.min_experience_years, v.pass_mark
-    FROM applications a
-    JOIN users u ON a.user_id = u.id
-    JOIN vacancies v ON a.vacancy_id = v.id
-    WHERE a.id = ?`).get(req.params.id);
+  const application = applicationsSvc.findDetail(req.params.id);
   if (!application) return res.status(404).render('404');
 
   const breakdown = academicBreakdown(application);
-  const exam = db.prepare('SELECT * FROM exam_results WHERE user_id = ? AND vacancy_id = ?').get(application.user_id, application.vacancy_id);
+  const exam = applicationsSvc.findExamResult(application.user_id, application.vacancy_id);
   const sectionScores = exam && exam.section_scores ? JSON.parse(exam.section_scores) : [];
   res.render('admin-application-detail', {
     application, breakdown, POINTS, exam, sectionScores,
@@ -61,7 +45,7 @@ const renderApplicationDetail = (req, res) => {
 
 // HR may adjust the counts (e.g. after verifying documents); points are recalculated from them.
 const calculateAcademicScore = (req, res) => {
-  const app = db.prepare('SELECT * FROM applications WHERE id = ?').get(req.params.id);
+  const app = applicationsSvc.findById(req.params.id);
   if (!app) return res.status(404).render('404');
   const hq = QUALIFICATIONS.includes(req.body.highest_qualification) ? req.body.highest_qualification : app.highest_qualification;
   const data = {
@@ -71,9 +55,7 @@ const calculateAcademicScore = (req, res) => {
     seminars_attended: Math.min(500, Math.max(0, toInt(req.body.seminars_attended, app.seminars_attended)))
   };
   const total = academicBreakdown(data).total;
-  db.prepare(`UPDATE applications SET highest_qualification = ?, experience_years = ?, journal_publications_count = ?,
-              seminars_attended = ?, academic_score = ? WHERE id = ?`)
-    .run(data.highest_qualification, data.experience_years, data.journal_publications_count, data.seminars_attended, total, app.id);
+  applicationsSvc.updateAcademicFigures(app.id, data, total);
   logAction(req.session.userId, 'SCORE_CHANGE', `HR re-evaluated academic score for application ID ${app.id}: ${app.academic_score} -> ${total} points.`, req);
   return redirectWith(res, `/admin/applications/${app.id}`, `Academic score updated: ${total} points.`);
 };
@@ -81,7 +63,7 @@ const calculateAcademicScore = (req, res) => {
 // ------------------------------------------------------------ interview support (4.6, optional)
 
 const recordInterviewResult = (req, res) => {
-  const app = db.prepare('SELECT a.*, v.title FROM applications a JOIN vacancies v ON v.id = a.vacancy_id WHERE a.id = ?').get(req.params.id);
+  const app = applicationsSvc.findWithVacancyTitle(req.params.id);
   if (!app) return res.status(404).render('404');
   const back = `/admin/applications/${app.id}`;
   if (!app.shortlisted || ![STATUS.SHORTLISTED, STATUS.RECOMMENDED].includes(app.status)) {
@@ -93,8 +75,7 @@ const recordInterviewResult = (req, res) => {
   const decision = req.body.final_decision;
   const status = decision === STATUS.RECOMMENDED || decision === STATUS.REJECTED ? decision : app.status;
 
-  db.prepare('UPDATE applications SET interview_score = ?, interviewer_remarks = ?, status = ? WHERE id = ?')
-    .run(Math.round(score), remarks, status, app.id);
+  applicationsSvc.saveInterview(app.id, Math.round(score), remarks, status);
   logAction(req.session.userId, 'INTERVIEW_RECORDED', `Interview score ${Math.round(score)} recorded for application ID ${app.id}; status ${app.status} -> ${status}.`, req);
   if (status !== app.status) {
     notify(app.user_id, status === STATUS.RECOMMENDED
@@ -107,7 +88,7 @@ const recordInterviewResult = (req, res) => {
 // ------------------------------------------------------------ shortlisting (4.3)
 
 const runAutoShortlist = (req, res) => {
-  const vacancy = db.prepare('SELECT * FROM vacancies WHERE id = ?').get(req.params.id);
+  const vacancy = vacanciesSvc.findById(req.params.id);
   if (!vacancy) return res.status(404).render('404');
   const back = `/vacancies/${vacancy.id}/applications`;
   if (vacancyState(vacancy) !== 'Closed') {
@@ -120,18 +101,17 @@ const runAutoShortlist = (req, res) => {
 // ------------------------------------------------------------ exam scheduling (4.4)
 
 const renderExamSettings = (req, res) => {
-  const vacancy = db.prepare('SELECT * FROM vacancies WHERE id = ?').get(req.params.id);
+  const vacancy = vacanciesSvc.findById(req.params.id);
   if (!vacancy) return res.status(404).render('404');
-  const counts = db.prepare('SELECT section, COUNT(*) AS c FROM questions WHERE vacancy_id = ? GROUP BY section').all(vacancy.id);
   res.render('exam-settings', {
     vacancy, error: null,
     values: { ...vacancy, exam_start: isoToLocalInput(vacancy.exam_start), exam_end: isoToLocalInput(vacancy.exam_end) },
-    counts: Object.fromEntries(counts.map((r) => [r.section, r.c]))
+    counts: questionsSvc.countsBySection(vacancy.id)
   });
 };
 
 const saveExamSettings = (req, res) => {
-  const vacancy = db.prepare('SELECT * FROM vacancies WHERE id = ?').get(req.params.id);
+  const vacancy = vacanciesSvc.findById(req.params.id);
   if (!vacancy) return res.status(404).render('404');
   if (vacancy.category !== 'non-academic') return redirectWith(res, `/vacancies/${vacancy.id}/applications`, 'Online tests apply to non-academic vacancies only.', 'error');
   const b = req.body;
@@ -141,7 +121,7 @@ const saveExamSettings = (req, res) => {
     aptitude_weight: toInt(b.aptitude_weight, 50), literacy_weight: toInt(b.literacy_weight, 50),
     pass_mark: toInt(b.pass_mark, 50), questions_per_section: toInt(b.questions_per_section, 10)
   };
-  const counts = Object.fromEntries(db.prepare('SELECT section, COUNT(*) AS c FROM questions WHERE vacancy_id = ? GROUP BY section').all(vacancy.id).map((r) => [r.section, r.c]));
+  const counts = questionsSvc.countsBySection(vacancy.id);
   const fail = (msg) => res.status(400).render('exam-settings', { vacancy, error: msg, values: v, counts });
 
   const startIso = localInputToIso(v.exam_start);
@@ -155,13 +135,11 @@ const saveExamSettings = (req, res) => {
   if (v.questions_per_section < 1 || v.questions_per_section > 100) return fail('Questions per section must be between 1 and 100.');
   if (!counts['Aptitude'] && !counts['Computer Literacy']) return fail('Add questions to the question bank before scheduling the exam.');
 
-  db.prepare(`UPDATE vacancies SET exam_start = ?, exam_end = ?, aptitude_minutes = ?, literacy_minutes = ?, aptitude_weight = ?,
-              literacy_weight = ?, pass_mark = ?, questions_per_section = ? WHERE id = ?`)
-    .run(startIso, endIso, v.aptitude_minutes, v.literacy_minutes, v.aptitude_weight, v.literacy_weight, v.pass_mark, v.questions_per_section, vacancy.id);
+  vacanciesSvc.saveExamSettings(vacancy.id, { ...v, exam_start: startIso, exam_end: endIso });
   logAction(req.session.userId, 'EXAM_SCHEDULED', `Exam scheduled for vacancy ID ${vacancy.id}: ${fmtDateTime(startIso)} to ${fmtDateTime(endIso)}, pass mark ${v.pass_mark}%.`, req);
 
   // Tell shortlisted applicants who have not yet taken the exam.
-  const targets = db.prepare("SELECT user_id FROM applications WHERE vacancy_id = ? AND status = 'Shortlisted' AND exam_completed = 0").all(vacancy.id);
+  const targets = applicationsSvc.awaitingExam(vacancy.id);
   targets.forEach((t) => notify(t.user_id,
     `Your aptitude and computer literacy tests for "${vacancy.title}" are scheduled: opens ${fmtDateTime(startIso)}, closes ${fmtDateTime(endIso)}.`, '/my-applications'));
   return redirectWith(res, `/vacancies/${vacancy.id}/applications`, `Exam scheduled. ${targets.length} shortlisted applicant(s) notified.`);
@@ -171,7 +149,7 @@ const saveExamSettings = (req, res) => {
 
 // Documents are private: only the owning applicant or an admin may download them.
 const downloadDocument = (req, res) => {
-  const app = db.prepare('SELECT * FROM applications WHERE id = ?').get(req.params.id);
+  const app = applicationsSvc.findById(req.params.id);
   if (!app) return res.status(404).render('404');
   const isAdmin = req.session.role === 'admin';
   if (!isAdmin && app.user_id !== req.session.userId) return res.status(403).render('403');
