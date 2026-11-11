@@ -1,12 +1,12 @@
-const db = require('../models/db');
+// Applicant notification inbox (Requirements 4.2, 4.3). Pure request/response; data access is in services/notifications.js.
+const notifications = require('../services/notifications');
 
 const list = (req, res) => {
-  const notifications = db.prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT 100').all(req.session.userId);
-  res.render('notifications', { notifications });
+  res.render('notifications', { notifications: notifications.listForUser(req.session.userId) });
 };
 
 const markAllRead = (req, res) => {
-  db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ?').run(req.session.userId);
+  notifications.markAllRead(req.session.userId);
   res.redirect('/notifications');
 };
 

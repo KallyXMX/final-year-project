@@ -1,10 +1,9 @@
-const db = require('../models/db');
+const vacancies = require('../services/vacancies');
 const { REPORTS, toCsv, toPdf } = require('../services/reports');
 const { logAction } = require('../services/audit');
 
 const renderReportsPage = (req, res) => {
-  const vacancies = db.prepare('SELECT id, title FROM vacancies ORDER BY title').all();
-  res.render('admin/reports', { reports: REPORTS, vacancies });
+  res.render('admin/reports', { reports: REPORTS, vacancies: vacancies.listTitles() });
 };
 
 // GET /admin/reports/:type/:format  (?vacancy_id=)
@@ -16,7 +15,7 @@ const exportReport = (req, res) => {
   const vacancyId = req.query.vacancy_id ? parseInt(req.query.vacancy_id, 10) : null;
   let subtitle = 'All vacancies';
   if (vacancyId) {
-    const v = db.prepare('SELECT title FROM vacancies WHERE id = ?').get(vacancyId);
+    const v = vacancies.findById(vacancyId);
     if (!v) return res.status(404).render('404');
     subtitle = `Vacancy: ${v.title}`;
   }

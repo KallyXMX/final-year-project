@@ -1,5 +1,5 @@
 const bcrypt = require('bcrypt');
-const db = require('../models/db');
+const users = require('../services/users');
 const { logAction } = require('../services/audit');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -36,15 +36,15 @@ const register = async (req, res) => {
     return renderRegister(res, 400, 'Password must contain at least one letter and one number.', values);
   }
 
-  if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) {
+  if (users.emailExists(email)) {
     return renderRegister(res, 400, 'An account with this email already exists.', values);
   }
 
   const hashed = await bcrypt.hash(password, 10);
   try {
     // Public registration always creates an applicant; admin accounts are provisioned by HR/IT.
-    const info = db.prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'applicant')").run(name, email, hashed);
-    logAction(info.lastInsertRowid, 'REGISTER', `New applicant account registered: ${email}.`, req);
+    const userId = users.createApplicant(name, email, hashed);
+    logAction(userId, 'REGISTER', `New applicant account registered: ${email}.`, req);
   } catch (e) {
     if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') return renderRegister(res, 400, 'An account with this email already exists.', values);
     throw e;
@@ -64,7 +64,7 @@ const login = async (req, res) => {
     return renderLogin(res, 429, 'Too many failed attempts. Please try again in 15 minutes.', values);
   }
 
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  const user = users.findByEmail(email);
   // Compare against a dummy hash when the user is unknown so timing does not reveal which emails exist.
   const hash = user ? user.password : '$2b$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidi';
   const ok = await bcrypt.compare(password, hash);
@@ -83,9 +83,7 @@ const login = async (req, res) => {
     }
     req.session.userId = user.id;
     req.session.role = user.role;
-    const info = db.prepare('INSERT INTO login_sessions (user_id, session_id, ip, user_agent) VALUES (?, ?, ?, ?)')
-      .run(user.id, req.sessionID, req.ip || null, String(req.get('user-agent') || '').slice(0, 255));
-    req.session.loginSessionId = info.lastInsertRowid;
+    req.session.loginSessionId = users.recordLogin(user.id, req.sessionID, req.ip, req.get('user-agent'));
     logAction(user.id, 'LOGIN', `User ${user.email} logged in successfully as ${user.role}.`, req);
     req.session.save(() => res.redirect('/dashboard'));
   });
@@ -95,7 +93,7 @@ const logout = (req, res) => {
   const userId = req.session && req.session.userId;
   const loginSessionId = req.session && req.session.loginSessionId;
   if (userId) {
-    if (loginSessionId) db.prepare('UPDATE login_sessions SET logout_at = CURRENT_TIMESTAMP WHERE id = ?').run(loginSessionId);
+    if (loginSessionId) users.recordLogout(loginSessionId);
     logAction(userId, 'LOGOUT', 'User logged out.', req);
   }
   req.session.destroy(() => {
