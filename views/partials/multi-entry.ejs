@@ -1,0 +1,15 @@
+<%# Repeating one-line boxes. Params: field, label, placeholder, required (bool), text (newline-separated saved value) %>
+<% const entries = String(locals.text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean); if (entries.length === 0) entries.push(''); %>
+<div class="form-group multi" data-field="<%= field %>" data-max="20" data-placeholder="<%= placeholder %>">
+  <label><%= label %></label>
+  <div class="multi-list">
+    <% entries.forEach(function (e) { %>
+      <div class="multi-row">
+        <input type="text" name="<%= field %>[]" value="<%= e %>" placeholder="<%= placeholder %>" maxlength="300" <%= locals.required ? 'required' : '' %>>
+        <button type="button" class="multi-remove" aria-label="Remove entry" title="Remove">&times;</button>
+      </div>
+    <% }) %>
+  </div>
+  <button type="button" class="btn btn-secondary btn-sm btn-auto multi-add">+ Add another</button>
+  <p class="hint">Up to 20 entries. Each box is one entry.</p>
+</div>

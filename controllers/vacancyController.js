@@ -11,6 +11,11 @@ const { eligibility } = require('../services/exam');
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const QUALS = ['Bachelor', 'Master', 'PhD', 'Other'];
 
+const MAX_ENTRIES = 20;
+// A repeating field arrives as a string (one box) or an array (several); blank boxes are dropped.
+const entryList = (v) => [].concat(v === undefined || v === null ? [] : v)
+  .map((s) => String(s).replace(/\s+/g, ' ').trim().slice(0, 300)).filter(Boolean);
+
 const withState = (v) => ({ ...v, state: vacancyState(v), examState: examState(v) });
 
 // ---------------------------------------------------------------- vacancies (4.1)
@@ -121,18 +126,23 @@ const applyToVacancy = (req, res) => {
   }
 
   const b = req.body || {};
+  const lists = {};
+  for (const k of ['qualifications_text', 'experience_text', 'publications_text', 'seminars_text']) {
+    lists[k] = entryList(b[k + '[]'] !== undefined ? b[k + '[]'] : b[k]);
+  }
   const values = {
     phone: String(b.phone || '').trim(),
     address: String(b.address || '').trim(),
     highest_qualification: String(b.highest_qualification || ''),
     experience_years: toInt(b.experience_years, 0),
-    qualifications_text: String(b.qualifications_text || '').trim().slice(0, 4000),
-    experience_text: String(b.experience_text || '').trim().slice(0, 4000),
-    publications_text: String(b.publications_text || '').trim().slice(0, 4000),
-    seminars_text: String(b.seminars_text || '').trim().slice(0, 4000)
+    qualifications_text: lists.qualifications_text.join('\n'),
+    experience_text: lists.experience_text.join('\n'),
+    publications_text: lists.publications_text.join('\n'),
+    seminars_text: lists.seminars_text.join('\n')
   };
   const fail = (msg) => { removeUploaded(req.files); return res.status(400).render('apply', { vacancy, error: msg, values }); };
 
+  if (Object.values(lists).some((l) => l.length > MAX_ENTRIES)) return fail(`You can add at most ${MAX_ENTRIES} entries per section.`);
   if (!/^[+\d][\d\s\-()]{6,19}$/.test(values.phone)) return fail('Please enter a valid phone number.');
   if (values.address.length < 5 || values.address.length > 300) return fail('Please enter your contact address.');
   if (!QUALS.includes(values.highest_qualification)) return fail('Please select your highest qualification.');

@@ -407,3 +407,10 @@ table { width: 100%; }
   .card { padding: 20px 16px; }
   .kv { grid-template-columns: 1fr; }
 }
+
+/* repeating one-line entry boxes (application form) */
+.multi-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+.multi-row input { flex: 1; }
+.multi-remove { border: 1px solid #cbd5e0; background: #fff; color: #c53030; border-radius: 6px; width: 36px; height: 36px; font-size: 20px; line-height: 1; cursor: pointer; flex: none; }
+.multi-remove:hover { background: #fed7d7; }
+.multi .multi-add { margin-top: 2px; }

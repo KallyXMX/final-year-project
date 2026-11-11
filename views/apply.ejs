@@ -28,15 +28,11 @@
           <div class="form-group"><label for="experience_years"><%= academic ? 'Teaching experience (years)' : 'Relevant work experience (years)' %></label>
             <input type="number" id="experience_years" name="experience_years" min="0" max="60" value="<%= values.experience_years ?? 0 %>" required></div>
         </div>
-        <div class="form-group"><label for="qualifications_text">Academic qualifications</label>
-          <textarea id="qualifications_text" name="qualifications_text" placeholder="One per line, e.g. B.Sc. Computer Science, BUK, 2015" required><%= values.qualifications_text || '' %></textarea></div>
-        <div class="form-group"><label for="experience_text">Work experience</label>
-          <textarea id="experience_text" name="experience_text" placeholder="One per line, e.g. Systems Officer, ABC Ltd, 2016 - 2021"><%= values.experience_text || '' %></textarea></div>
+        <%- include('partials/multi-entry', { field: 'qualifications_text', label: 'Academic qualifications', placeholder: 'e.g. B.Sc. Computer Science, BUK, 2015', required: true, text: values.qualifications_text }) %>
+        <%- include('partials/multi-entry', { field: 'experience_text', label: 'Work experience', placeholder: 'e.g. Systems Officer, ABC Ltd, 2016 - 2021', required: false, text: values.experience_text }) %>
         <% if (academic) { %>
-          <div class="form-group"><label for="publications_text">Research publications (journals, conference papers)</label>
-            <textarea id="publications_text" name="publications_text" placeholder="One publication per line. Each earns points."><%= values.publications_text || '' %></textarea></div>
-          <div class="form-group"><label for="seminars_text">Professional achievements: workshops &amp; seminars</label>
-            <textarea id="seminars_text" name="seminars_text" placeholder="One per line. Each earns points."><%= values.seminars_text || '' %></textarea></div>
+          <%- include('partials/multi-entry', { field: 'publications_text', label: 'Research publications (journals, conference papers)', placeholder: 'One publication per box. Each earns points.', required: false, text: values.publications_text }) %>
+          <%- include('partials/multi-entry', { field: 'seminars_text', label: 'Professional achievements: workshops & seminars', placeholder: 'One workshop or seminar per box. Each earns points.', required: false, text: values.seminars_text }) %>
         <% } %>
       </fieldset>
       <fieldset><legend>Documents (PDF, DOC or DOCX, max 5MB each)</legend>
@@ -49,4 +45,32 @@
     </form>
   </div>
 </div>
+<script>
+  (function () {
+    document.querySelectorAll('.multi').forEach(function (box) {
+      var list = box.querySelector('.multi-list'), add = box.querySelector('.multi-add');
+      var max = Number(box.dataset.max), field = box.dataset.field, ph = box.dataset.placeholder;
+      var required = list.querySelector('input').hasAttribute('required');
+      function sync() {
+        var n = list.children.length;
+        add.disabled = n >= max;
+        list.querySelectorAll('.multi-remove').forEach(function (b) { b.style.visibility = n > 1 ? 'visible' : 'hidden'; });
+      }
+      add.addEventListener('click', function () {
+        if (list.children.length >= max) return;
+        var row = document.createElement('div'); row.className = 'multi-row';
+        var inp = document.createElement('input'); inp.type = 'text'; inp.name = field + '[]'; inp.placeholder = ph; inp.maxLength = 300;
+        var rm = document.createElement('button'); rm.type = 'button'; rm.className = 'multi-remove'; rm.title = 'Remove'; rm.setAttribute('aria-label', 'Remove entry'); rm.innerHTML = '&times;';
+        row.appendChild(inp); row.appendChild(rm); list.appendChild(row); inp.focus(); sync();
+      });
+      list.addEventListener('click', function (e) {
+        if (!e.target.classList.contains('multi-remove') || list.children.length <= 1) return;
+        e.target.parentNode.remove();
+        if (required && !list.querySelector('input[required]')) list.querySelector('input').setAttribute('required', '');
+        sync();
+      });
+      sync();
+    });
+  })();
+</script>
 <%- include('partials/footer') %>
