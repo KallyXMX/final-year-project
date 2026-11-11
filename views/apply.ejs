@@ -31,8 +31,8 @@
         <%- include('partials/multi-entry', { field: 'qualifications_text', label: 'Academic qualifications', placeholder: 'e.g. B.Sc. Computer Science, BUK, 2015', required: true, text: values.qualifications_text }) %>
         <%- include('partials/multi-entry', { field: 'experience_text', label: 'Work experience', placeholder: 'e.g. Systems Officer, ABC Ltd, 2016 - 2021', required: false, text: values.experience_text }) %>
         <% if (academic) { %>
-          <%- include('partials/multi-entry', { field: 'publications_text', label: 'Research publications (journals, conference papers)', placeholder: 'One publication per box. Each earns points.', required: false, text: values.publications_text }) %>
-          <%- include('partials/multi-entry', { field: 'seminars_text', label: 'Professional achievements: workshops & seminars', placeholder: 'One workshop or seminar per box. Each earns points.', required: false, text: values.seminars_text }) %>
+          <%- include('partials/multi-entry', { field: 'publications_text', label: 'Research publications (journals, conference papers)', placeholder: 'One publication per box.', required: false, text: values.publications_text }) %>
+          <%- include('partials/multi-entry', { field: 'seminars_text', label: 'Professional achievements: workshops & seminars', placeholder: 'One workshop or seminar per box.', required: false, text: values.seminars_text }) %>
         <% } %>
       </fieldset>
       <fieldset><legend>Documents (PDF, DOC or DOCX, max 5MB each)</legend>
