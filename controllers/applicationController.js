@@ -8,6 +8,7 @@ const { vacancyState, examState } = require('../utils/vacancy');
 const { academicBreakdown, splitLines, POINTS } = require('../utils/qualifications');
 const { localInputToIso, isoToLocalInput, fmtDateTime } = require('../utils/time');
 const { redirectWith, toInt } = require('../utils/http');
+const { STATUS, QUALIFICATIONS } = require('../utils/constants');
 const { uploadDir } = require('../middlewares/upload');
 
 // ------------------------------------------------------------ all applicants (search / filter)
@@ -62,7 +63,7 @@ const renderApplicationDetail = (req, res) => {
 const calculateAcademicScore = (req, res) => {
   const app = db.prepare('SELECT * FROM applications WHERE id = ?').get(req.params.id);
   if (!app) return res.status(404).render('404');
-  const hq = ['Bachelor', 'Master', 'PhD', 'Other'].includes(req.body.highest_qualification) ? req.body.highest_qualification : app.highest_qualification;
+  const hq = QUALIFICATIONS.includes(req.body.highest_qualification) ? req.body.highest_qualification : app.highest_qualification;
   const data = {
     highest_qualification: hq,
     experience_years: Math.min(60, Math.max(0, toInt(req.body.experience_years, app.experience_years))),
@@ -83,20 +84,20 @@ const recordInterviewResult = (req, res) => {
   const app = db.prepare('SELECT a.*, v.title FROM applications a JOIN vacancies v ON v.id = a.vacancy_id WHERE a.id = ?').get(req.params.id);
   if (!app) return res.status(404).render('404');
   const back = `/admin/applications/${app.id}`;
-  if (!app.shortlisted || !['Shortlisted', 'Recommended'].includes(app.status)) {
+  if (!app.shortlisted || ![STATUS.SHORTLISTED, STATUS.RECOMMENDED].includes(app.status)) {
     return redirectWith(res, back, 'Interview results can only be recorded for shortlisted candidates.', 'error');
   }
   const score = Number(req.body.interview_score);
   if (!Number.isFinite(score) || score < 0 || score > 100) return redirectWith(res, back, 'Interview score must be between 0 and 100.', 'error');
   const remarks = String(req.body.interviewer_remarks || '').trim().slice(0, 2000);
   const decision = req.body.final_decision;
-  const status = decision === 'Recommended' || decision === 'Rejected' ? decision : app.status;
+  const status = decision === STATUS.RECOMMENDED || decision === STATUS.REJECTED ? decision : app.status;
 
   db.prepare('UPDATE applications SET interview_score = ?, interviewer_remarks = ?, status = ? WHERE id = ?')
     .run(Math.round(score), remarks, status, app.id);
   logAction(req.session.userId, 'INTERVIEW_RECORDED', `Interview score ${Math.round(score)} recorded for application ID ${app.id}; status ${app.status} -> ${status}.`, req);
   if (status !== app.status) {
-    notify(app.user_id, status === 'Recommended'
+    notify(app.user_id, status === STATUS.RECOMMENDED
       ? `You have been recommended for "${app.title}" following the interview.`
       : `Your application for "${app.title}" was unsuccessful after the interview stage.`, '/my-applications');
   }

@@ -4,6 +4,7 @@ const { vacancyState, examState } = require('../utils/vacancy');
 const { fmtDateTime } = require('../utils/time');
 const { notify } = require('./notifications');
 const { logAction } = require('./audit');
+const { STATUS } = require('../utils/constants');
 
 // Requirement 4.3: verify minimum requirements against the vacancy criteria, shortlist
 // qualified applicants automatically, store the result and notify the applicants.
@@ -28,7 +29,7 @@ const shortlistVacancy = (vacancyId, actorId = null, req = null) => {
   const vacancy = db.prepare('SELECT * FROM vacancies WHERE id = ?').get(vacancyId);
   if (!vacancy) return null;
 
-  const pending = db.prepare("SELECT * FROM applications WHERE vacancy_id = ? AND status = 'Pending'").all(vacancyId);
+  const pending = db.prepare('SELECT * FROM applications WHERE vacancy_id = ? AND status = ?').all(vacancyId, STATUS.PENDING);
   const setStatus = db.prepare('UPDATE applications SET status = ?, status_note = ?, shortlisted = ? WHERE id = ?');
   let shortlisted = 0;
 
@@ -46,11 +47,11 @@ const shortlistVacancy = (vacancyId, actorId = null, req = null) => {
         } else {
           msg += ' Your qualifications will be evaluated by the panel ahead of the physical interview.';
         }
-        setStatus.run('Shortlisted', note, 1, app.id);
+        setStatus.run(STATUS.SHORTLISTED, note, 1, app.id);
         notify(app.user_id, msg, '/my-applications');
       } else {
         const note = `Did not meet the requirements: ${verdict.reasons.join('; ')}.`;
-        setStatus.run('Rejected', note, 0, app.id);
+        setStatus.run(STATUS.REJECTED, note, 0, app.id);
         notify(app.user_id, `Your application for "${vacancy.title}" was not shortlisted (${verdict.reasons.join('; ')}).`, '/my-applications');
       }
     }

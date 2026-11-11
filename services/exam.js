@@ -3,6 +3,7 @@ const { examState, isAcademic } = require('../utils/vacancy');
 const { parseDbDate } = require('../utils/time');
 const { notify } = require('./notifications');
 const { logAction } = require('./audit');
+const { STATUS } = require('../utils/constants');
 
 // Requirement 4.4 / 6.3 "Examination engine": question randomisation, section timers,
 // auto-submission, auto-marking, weighted scoring and a configurable pass mark.
@@ -22,8 +23,8 @@ const eligibility = (application, vacancy, now = new Date()) => {
   if (!application) return { ok: false, reason: 'You have not applied for this vacancy.' };
   if (isAcademic(vacancy)) return { ok: false, reason: 'Academic positions are assessed on qualifications; there is no online test for this vacancy.' };
   if (application.exam_completed) return { ok: false, reason: 'You have already completed this examination.' };
-  if (application.status !== 'Shortlisted') {
-    return { ok: false, reason: application.status === 'Pending'
+  if (application.status !== STATUS.SHORTLISTED) {
+    return { ok: false, reason: application.status === STATUS.PENDING
       ? 'You can take the examination only after you have been shortlisted.'
       : `Your application status is "${application.status}", so you are not eligible for the examination.` };
   }

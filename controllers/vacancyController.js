@@ -6,10 +6,10 @@ const { vacancyState, examState } = require('../utils/vacancy');
 const { endOfLocalDay, startOfLocalDay, todayLocalYmd } = require('../utils/time');
 const { academicBreakdown, splitLines, LEVELS } = require('../utils/qualifications');
 const { redirectWith, toInt } = require('../utils/http');
+const { STATUS, QUALIFICATIONS, CATEGORY } = require('../utils/constants');
 const { eligibility } = require('../services/exam');
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
-const QUALS = ['Bachelor', 'Master', 'PhD', 'Other'];
 
 const MAX_ENTRIES = 20;
 // A repeating field arrives as a string (one box) or an array (several); blank boxes are dropped.
@@ -47,7 +47,7 @@ const createVacancy = (req, res) => {
     category: b.category === 'academic' ? 'academic' : 'non-academic',
     description: String(b.description || '').trim(),
     requirements: String(b.requirements || '').trim(),
-    min_qualification: QUALS.concat(['None']).includes(b.min_qualification) ? b.min_qualification : 'Bachelor',
+    min_qualification: QUALIFICATIONS.concat(['None']).includes(b.min_qualification) ? b.min_qualification : 'Bachelor',
     min_experience_years: Math.min(60, Math.max(0, toInt(b.min_experience_years, 0))),
     opens_at: String(b.opens_at || '').trim(),
     deadline: String(b.deadline || '').trim()
@@ -145,7 +145,7 @@ const applyToVacancy = (req, res) => {
   if (Object.values(lists).some((l) => l.length > MAX_ENTRIES)) return fail(`You can add at most ${MAX_ENTRIES} entries per section.`);
   if (!/^[+\d][\d\s\-()]{6,19}$/.test(values.phone)) return fail('Please enter a valid phone number.');
   if (values.address.length < 5 || values.address.length > 300) return fail('Please enter your contact address.');
-  if (!QUALS.includes(values.highest_qualification)) return fail('Please select your highest qualification.');
+  if (!QUALIFICATIONS.includes(values.highest_qualification)) return fail('Please select your highest qualification.');
   if (values.experience_years < 0 || values.experience_years > 60) return fail('Years of experience must be between 0 and 60.');
   if (values.qualifications_text.length < 3) return fail('Please list your academic qualifications.');
   const cv = req.files && req.files.cv && req.files.cv[0];
@@ -165,8 +165,8 @@ const applyToVacancy = (req, res) => {
       INSERT INTO applications
         (user_id, vacancy_id, status, phone, address, highest_qualification, experience_years, qualifications_text, experience_text,
          publications_text, seminars_text, journal_publications_count, seminars_attended, academic_score, cv_path, supporting_documents_path)
-      VALUES (?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      userId, vacancy.id, values.phone, values.address, values.highest_qualification, values.experience_years,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      userId, vacancy.id, STATUS.PENDING, values.phone, values.address, values.highest_qualification, values.experience_years,
       values.qualifications_text, values.experience_text,
       academic ? values.publications_text : '', academic ? values.seminars_text : '',
       publications, seminars, score, cv.filename, docs.filename);
@@ -195,7 +195,7 @@ const getMyApplications = (req, res) => {
 
   const applications = rows.map((a) => {
     const vac = { ...a, id: a.vid };
-    const elig = a.category === 'non-academic' && a.status === 'Shortlisted' ? eligibility(a, vac) : { ok: false };
+    const elig = a.category === CATEGORY.NON_ACADEMIC && a.status === STATUS.SHORTLISTED ? eligibility(a, vac) : { ok: false };
     return { ...a, vacancyState: vacancyState(vac), examState: examState(vac), canTakeExam: elig.ok, examNote: elig.reason };
   });
   res.render('my-applications', { applications });
@@ -214,7 +214,7 @@ const viewVacancyApplications = (req, res) => {
     LEFT JOIN exam_results er ON er.user_id = a.user_id AND er.vacancy_id = a.vacancy_id
     WHERE a.vacancy_id = ?
     ORDER BY a.applied_at DESC`).all(vacancy.id);
-  const pending = applications.filter((a) => a.status === 'Pending').length;
+  const pending = applications.filter((a) => a.status === STATUS.PENDING).length;
   const questionCount = db.prepare('SELECT COUNT(*) AS c FROM questions WHERE vacancy_id = ?').get(vacancy.id).c;
   res.render('admin-applications', { applications, vacancy: withState(vacancy), pending, questionCount });
 };
@@ -222,16 +222,16 @@ const viewVacancyApplications = (req, res) => {
 // Final HR decision after the interview stage (Requirement 2.8)
 const updateApplicationStatus = (req, res) => {
   const { status } = req.body;
-  if (!['Accepted', 'Rejected'].includes(status)) return res.status(400).render('500', { message: 'Invalid status. Must be "Accepted" or "Rejected".' });
+  if (![STATUS.ACCEPTED, STATUS.REJECTED].includes(status)) return res.status(400).render('500', { message: 'Invalid status. Must be "Accepted" or "Rejected".' });
   const app = db.prepare('SELECT a.*, v.title FROM applications a JOIN vacancies v ON v.id = a.vacancy_id WHERE a.id = ?').get(req.params.applicationId);
   if (!app) return res.status(404).render('404');
   const back = `/vacancies/${app.vacancy_id}/applications`;
-  if (status === 'Accepted' && !['Shortlisted', 'Recommended'].includes(app.status)) {
+  if (status === STATUS.ACCEPTED && ![STATUS.SHORTLISTED, STATUS.RECOMMENDED].includes(app.status)) {
     return redirectWith(res, back, 'Only shortlisted or recommended candidates can be accepted.', 'error');
   }
   db.prepare('UPDATE applications SET status = ? WHERE id = ?').run(status, app.id);
   logAction(req.session.userId, 'STATUS_CHANGE', `Application ID ${app.id} changed from ${app.status} to ${status}.`, req);
-  notify(app.user_id, status === 'Accepted'
+  notify(app.user_id, status === STATUS.ACCEPTED
     ? `Congratulations! You have been selected for "${app.title}". HR will contact you about the appointment.`
     : `Your application for "${app.title}" was unsuccessful. Thank you for your interest.`, '/my-applications');
   return redirectWith(res, back, `Application ${status.toLowerCase()}.`);
