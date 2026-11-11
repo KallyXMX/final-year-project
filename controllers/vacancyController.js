@@ -1,3 +1,5 @@
+// Vacancies, online application, status tracking, final HR decision and the dashboards
+// (Requirements 4.1, 4.2, 6.3). Layer: Application.
 const fs = require('fs');
 const vacanciesSvc = require('../services/vacancies');
 const applicationsSvc = require('../services/applications');

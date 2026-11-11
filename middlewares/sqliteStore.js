@@ -1,3 +1,4 @@
+// Stores login sessions in the SQLite table http_sessions so they survive a server restart. Layer: Data.
 const session = require('express-session');
 const db = require('../models/db');
 

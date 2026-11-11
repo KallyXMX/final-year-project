@@ -1,3 +1,4 @@
+// Report definitions and PDF/CSV builders (Requirement 4.7). Layer: Application.
 const db = require('../models/db');
 const PDFDocument = require('pdfkit');
 const { createObjectCsvStringifier } = require('csv-writer');

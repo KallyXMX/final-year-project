@@ -1,3 +1,4 @@
+// Routes for the applicant's online test and for HR's question bank (Requirement 4.4). Layer: Application.
 const express = require('express');
 const router = express.Router();
 const examController = require('../controllers/examController');

@@ -1,3 +1,6 @@
+// Entry point. Starts the web server and a 60-second background job that
+// (1) shortlists vacancies whose deadline has passed and (2) auto-submits abandoned exam attempts.
+// Layer: Application.
 const app = require('./app');
 const { runDueShortlisting } = require('./services/shortlisting');
 const { finalizeStaleAttempts } = require('./services/exam');

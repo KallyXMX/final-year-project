@@ -1,3 +1,4 @@
+// Makes the current user, unread count and date helpers available to every view. Layer: Application.
 const users = require('../services/users');
 const { unreadCount } = require('../services/notifications');
 const time = require('../utils/time');

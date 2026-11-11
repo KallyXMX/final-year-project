@@ -1,3 +1,6 @@
+// Shortlisting engine (Requirement 4.3): checks each pending application against the vacancy's minimum
+// qualification, experience and CV, then marks it Shortlisted or Rejected and notifies the applicant.
+// Layer: Application.
 const db = require('../models/db');
 const { levelOf, LEVEL_LABELS } = require('../utils/qualifications');
 const { vacancyState, examState } = require('../utils/vacancy');

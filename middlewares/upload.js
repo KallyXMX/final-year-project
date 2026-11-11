@@ -1,3 +1,4 @@
+// File upload rules for CV and supporting documents (type, size, private folder). Layer: Application.
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');

@@ -1,3 +1,6 @@
+// Routes for HR applicant management: search/filter, qualification summary, academic re-scoring, interview
+// results, shortlisting trigger, exam scheduling, private document download, audit log and login sessions.
+// Layer: Application (routes only map URLs to controller functions and say who may access them).
 const express = require('express');
 const router = express.Router();
 const c = require('../controllers/applicationController');

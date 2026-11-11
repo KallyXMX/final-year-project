@@ -1,3 +1,4 @@
+// In-app notifications (Requirements 4.2, 4.3). Layer: Application / Data.
 const db = require('../models/db');
 
 // In-app notifications (Requirements 4.2, 4.3). Email/SMS are out of scope.

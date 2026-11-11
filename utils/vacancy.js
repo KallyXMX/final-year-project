@@ -1,3 +1,4 @@
+// Vacancy and exam state (Upcoming / Open / Closed, NotScheduled / Upcoming / Open / Ended) computed from dates.
 const { endOfLocalDay, startOfLocalDay, parseDbDate } = require('./time');
 
 // Recruitment opens and closes automatically from the vacancy dates (Requirement 4.1).

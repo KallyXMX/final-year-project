@@ -1,3 +1,4 @@
+// Routes for the in-app notification inbox (Requirement 4.2). Layer: Application.
 const express = require('express');
 const router = express.Router();
 const c = require('../controllers/notificationController');

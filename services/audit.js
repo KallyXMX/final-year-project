@@ -1,3 +1,5 @@
+// Audit log (Requirement 4.8): writes one row per key action and reads them for the admin pages.
+// Layer: Application / Data.
 const db = require('../models/db');
 
 // Record a key action (Requirement 4.8). Never throws: logging must not break a request.

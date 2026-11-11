@@ -1,3 +1,6 @@
+// HR applicant management (Requirements 4.1, 4.3, 4.5, 4.6): search/filter, qualification summary for the
+// panel, academic re-scoring, interview results, shortlisting trigger, exam scheduling, document download.
+// Controllers only read the request, call a service and render/redirect. Layer: Application.
 const fs = require('fs');
 const path = require('path');
 const vacanciesSvc = require('../services/vacancies');

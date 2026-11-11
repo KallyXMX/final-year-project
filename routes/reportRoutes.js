@@ -1,3 +1,4 @@
+// Routes for the reports page and PDF/CSV exports (Requirement 4.7). Layer: Application.
 const express = require('express');
 const router = express.Router();
 const c = require('../controllers/reportController');

@@ -1,3 +1,5 @@
+// Examination engine (Requirement 4.4): eligibility, random paper, section timers, auto-submit, auto-marking,
+// weighted scoring and pass mark. Layer: Application.
 const db = require('../models/db');
 const { examState, isAcademic } = require('../utils/vacancy');
 const { parseDbDate } = require('../utils/time');

@@ -1,3 +1,5 @@
+// Reports page and PDF/CSV download endpoint (Requirement 4.7). Report definitions are in services/reports.js.
+// Layer: Application.
 const vacancies = require('../services/vacancies');
 const { REPORTS, toCsv, toPdf } = require('../services/reports');
 const { logAction } = require('../services/audit');

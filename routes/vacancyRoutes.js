@@ -1,3 +1,5 @@
+// Routes for vacancies, applying, application tracking, final HR decisions and the dashboard
+// (Requirements 4.1, 4.2). Layer: Application.
 const express = require('express');
 const router = express.Router();
 const vacancyController = require('../controllers/vacancyController');

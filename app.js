@@ -1,3 +1,5 @@
+// Builds the Express application: security headers, sessions, CSRF protection, static files,
+// route mounting and error pages. server.js starts it. Layer: Application.
 const express = require('express');
 const session = require('express-session');
 const path = require('path');

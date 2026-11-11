@@ -1,3 +1,4 @@
+// CSRF protection (Requirement 4.8). Layer: Application.
 const crypto = require('crypto');
 
 // Synchronizer-token CSRF protection. Every POST form carries a hidden "_csrf" field.

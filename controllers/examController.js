@@ -1,3 +1,5 @@
+// Applicant online test pages and HR question bank (Requirement 4.4). The rules (randomising, timers,
+// marking) live in services/exam.js. Layer: Application.
 const vacanciesSvc = require('../services/vacancies');
 const applicationsSvc = require('../services/applications');
 const questionsSvc = require('../services/questions');

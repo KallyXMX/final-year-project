@@ -1,3 +1,4 @@
+// Routes for registration, login and logout (Requirements 4.2, 4.8). Layer: Application.
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');

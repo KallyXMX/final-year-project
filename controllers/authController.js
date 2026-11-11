@@ -1,3 +1,5 @@
+// Registration, login (with brute-force throttling and session regeneration) and logout
+// (Requirement 4.8). Layer: Application.
 const bcrypt = require('bcrypt');
 const users = require('../services/users');
 const { logAction } = require('../services/audit');

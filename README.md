@@ -60,3 +60,20 @@ The seed script (`npm run seed`) automatically generates a default administrator
 **Admin Login:**
 - **Email:** `admin@buk.edu.ng`
 - **Password:** `password123`
+
+## Running the Tests
+
+```bash
+npm test
+```
+
+This runs 68 end-to-end checks covering the requirements (vacancies, applying, shortlisting, the online exam, reports, security). It uses a temporary database, so your real data is not touched.
+
+## Project Structure
+
+The code follows a three-tier layout:
+
+- **Presentation:** `views/` (EJS pages) and `public/css/`.
+- **Application:** `routes/` (URL to controller, with access rules), `controllers/` (read the request, call a service, render or redirect), `services/` (the business rules: shortlisting, exam engine, reports, audit, notifications) and `middlewares/` (login/role checks, CSRF, uploads).
+- **Data:** `models/db.js` (SQLite schema) and the data-access functions in `services/` (`vacancies`, `applications`, `questions`, `users`, `analytics`).
+- Shared fixed values (application statuses, qualification options) are in `utils/constants.js`.

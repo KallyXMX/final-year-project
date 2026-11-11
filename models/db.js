@@ -1,3 +1,5 @@
+// Data layer: opens the SQLite database, creates every table (users, vacancies, applications, questions,
+// exam_attempts, exam_results, notifications, audit_logs, login_sessions, http_sessions) and runs safe migrations.
 const Database = require('better-sqlite3');
 const path = require('path');
 
