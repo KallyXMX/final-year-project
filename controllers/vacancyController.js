@@ -7,8 +7,8 @@ const usersSvc = require('../services/users');
 const { logAction } = require('../services/audit');
 const { notify, listForUser } = require('../services/notifications');
 const { vacancyState, examState } = require('../utils/vacancy');
-const { endOfLocalDay, startOfLocalDay, todayLocalYmd } = require('../utils/time');
-const { academicBreakdown, splitLines, LEVELS } = require('../utils/qualifications');
+const { endOfLocalDay, todayLocalYmd } = require('../utils/time');
+const { academicBreakdown, splitLines } = require('../utils/qualifications');
 const { redirectWith, toInt } = require('../utils/http');
 const { STATUS, QUALIFICATIONS, CATEGORY } = require('../utils/constants');
 const { eligibility } = require('../services/exam');
@@ -35,7 +35,7 @@ const getAllVacancies = (req, res) => {
 };
 
 const renderCreateForm = (req, res) =>
-  res.render('create-vacancy', { error: null, values: { opens_at: todayLocalYmd(), min_qualification: 'Bachelor', min_experience_years: 0, category: 'non-academic' } });
+  res.render('admin/create-vacancy', { error: null, values: { opens_at: todayLocalYmd(), min_qualification: 'Bachelor', min_experience_years: 0, category: 'non-academic' } });
 
 const createVacancy = (req, res) => {
   const b = req.body;
@@ -50,7 +50,7 @@ const createVacancy = (req, res) => {
     opens_at: String(b.opens_at || '').trim(),
     deadline: String(b.deadline || '').trim()
   };
-  const fail = (msg) => res.status(400).render('create-vacancy', { error: msg, values });
+  const fail = (msg) => res.status(400).render('admin/create-vacancy', { error: msg, values });
 
   if (!values.title || !values.department) return fail('Title and department are required.');
   if (values.title.length > 150 || values.department.length > 150) return fail('Title / department is too long.');
@@ -195,7 +195,7 @@ const viewVacancyApplications = (req, res) => {
   const applications = applicationsSvc.listForVacancy(vacancy.id);
   const pending = applications.filter((a) => a.status === STATUS.PENDING).length;
   const questionCount = questionsSvc.countForVacancy(vacancy.id);
-  res.render('admin-applications', { applications, vacancy: withState(vacancy), pending, questionCount });
+  res.render('admin/vacancy-applicants', { applications, vacancy: withState(vacancy), pending, questionCount });
 };
 
 // Final HR decision after the interview stage (Requirement 2.8)
@@ -233,5 +233,5 @@ const getDashboard = (req, res) => {
 module.exports = {
   getAllVacancies, renderCreateForm, createVacancy, closeVacancy, reopenVacancy,
   renderApplyForm, applyToVacancy, getMyApplications, viewVacancyApplications,
-  updateApplicationStatus, getDashboard, LEVELS
+  updateApplicationStatus, getDashboard
 };

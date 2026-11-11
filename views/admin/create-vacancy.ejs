@@ -1,10 +1,10 @@
-<%- include('partials/header', { pageTitle: 'Post vacancy' }) %>
+<%- include('../partials/header', { pageTitle: 'Post vacancy' }) %>
 <div class="wide-form">
   <div class="page-header"><h1>Post New Vacancy</h1><a href="/vacancies">&larr; Back to Vacancies</a></div>
   <div class="card">
     <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
     <form action="/vacancies/create" method="POST">
-      <%- include('partials/csrf') %>
+      <%- include('../partials/csrf') %>
       <div class="form-row">
         <div class="form-group"><label for="title">Position title</label>
           <input type="text" id="title" name="title" value="<%= values.title || '' %>" placeholder="e.g. Lecturer II" required maxlength="150"></div>
@@ -44,4 +44,4 @@
     </form>
   </div>
 </div>
-<%- include('partials/footer') %>
+<%- include('../partials/footer') %>

@@ -1,4 +1,4 @@
-<%- include('partials/header', { pageTitle: 'Question bank' }) %>
+<%- include('../partials/header', { pageTitle: 'Question bank' }) %>
 <div class="page-header"><div><h1>Question bank</h1><p class="sub"><%= vacancy.title %></p></div>
   <div class="actions"><a href="/admin/vacancies/<%= vacancy.id %>/exam" class="btn btn-secondary btn-sm">Schedule exam</a>
   <a href="/vacancies/<%= vacancy.id %>/applications">&larr; Back to applicants</a></div></div>
@@ -11,7 +11,7 @@
     <h3 style="margin-bottom:12px;">Add a question</h3>
     <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
     <form action="/questions/create" method="POST">
-      <%- include('partials/csrf') %>
+      <%- include('../partials/csrf') %>
       <input type="hidden" name="vacancy_id" value="<%= vacancy.id %>">
       <div class="form-group"><label for="section">Section</label>
         <select id="section" name="section" required>
@@ -34,10 +34,10 @@
         <span class="badge badge-info"><%= q.section %></span> <strong><%= q.question_text %></strong>
         <small>A) <%= q.option_a %> &middot; B) <%= q.option_b %> &middot; C) <%= q.option_c %> &middot; D) <%= q.option_d %> &mdash; correct: <strong><%= q.correct_option %></strong></small>
         <form action="/questions/<%= q.id %>/delete" method="POST" style="margin-top:6px;" onsubmit="return confirm('Delete this question?');">
-          <%- include('partials/csrf') %><button class="btn btn-danger btn-sm">Delete</button></form>
+          <%- include('../partials/csrf') %><button class="btn btn-danger btn-sm">Delete</button></form>
       </div>
     <% }) %>
   </div>
 </div>
 <% } %>
-<%- include('partials/footer') %>
+<%- include('../partials/footer') %>

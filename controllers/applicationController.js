@@ -6,7 +6,7 @@ const questionsSvc = require('../services/questions');
 const { logAction } = require('../services/audit');
 const { notify } = require('../services/notifications');
 const { shortlistVacancy } = require('../services/shortlisting');
-const { vacancyState, examState } = require('../utils/vacancy');
+const { vacancyState } = require('../utils/vacancy');
 const { academicBreakdown, splitLines, POINTS } = require('../utils/qualifications');
 const { localInputToIso, isoToLocalInput, fmtDateTime } = require('../utils/time');
 const { redirectWith, toInt } = require('../utils/http');
@@ -16,7 +16,7 @@ const { uploadDir } = require('../middlewares/upload');
 // ------------------------------------------------------------ all applicants (search / filter)
 
 const getAllApplications = (req, res) => {
-  res.render('admin/applications', {
+  res.render('admin/all-applicants', {
     applications: applicationsSvc.search(req.query),
     vacancies: vacanciesSvc.listTitles(),
     query: req.query
@@ -32,7 +32,7 @@ const renderApplicationDetail = (req, res) => {
   const breakdown = academicBreakdown(application);
   const exam = applicationsSvc.findExamResult(application.user_id, application.vacancy_id);
   const sectionScores = exam && exam.section_scores ? JSON.parse(exam.section_scores) : [];
-  res.render('admin-application-detail', {
+  res.render('admin/applicant-detail', {
     application, breakdown, POINTS, exam, sectionScores,
     lists: {
       qualifications: splitLines(application.qualifications_text),
@@ -103,7 +103,7 @@ const runAutoShortlist = (req, res) => {
 const renderExamSettings = (req, res) => {
   const vacancy = vacanciesSvc.findById(req.params.id);
   if (!vacancy) return res.status(404).render('404');
-  res.render('exam-settings', {
+  res.render('admin/exam-settings', {
     vacancy, error: null,
     values: { ...vacancy, exam_start: isoToLocalInput(vacancy.exam_start), exam_end: isoToLocalInput(vacancy.exam_end) },
     counts: questionsSvc.countsBySection(vacancy.id)
@@ -122,7 +122,7 @@ const saveExamSettings = (req, res) => {
     pass_mark: toInt(b.pass_mark, 50), questions_per_section: toInt(b.questions_per_section, 10)
   };
   const counts = questionsSvc.countsBySection(vacancy.id);
-  const fail = (msg) => res.status(400).render('exam-settings', { vacancy, error: msg, values: v, counts });
+  const fail = (msg) => res.status(400).render('admin/exam-settings', { vacancy, error: msg, values: v, counts });
 
   const startIso = localInputToIso(v.exam_start);
   const endIso = localInputToIso(v.exam_end);
@@ -170,5 +170,5 @@ const downloadDocument = (req, res) => {
 
 module.exports = {
   getAllApplications, renderApplicationDetail, calculateAcademicScore, recordInterviewResult,
-  runAutoShortlist, renderExamSettings, saveExamSettings, downloadDocument, examState
+  runAutoShortlist, renderExamSettings, saveExamSettings, downloadDocument
 };

@@ -71,7 +71,7 @@ const renderResult = (req, res) => {
   if (attempt && !attempt.finished_at) return res.redirect(`/exam/${vacancy.id}`);
   const result = applicationsSvc.findExamResult(req.session.userId, vacancy.id);
   if (!result) return redirectWith(res, '/my-applications', 'No examination result is available yet.', 'error');
-  res.render('exam_result', {
+  res.render('exam-result', {
     vacancy, result, sections: result.section_scores ? JSON.parse(result.section_scores) : [], passMark: vacancy.pass_mark ?? 50
   });
 };
@@ -81,7 +81,7 @@ const renderResult = (req, res) => {
 const renderQuestionBank = (req, res) => {
   const vacancy = vacanciesSvc.findById(req.params.id);
   if (!vacancy) return res.status(404).render('404');
-  res.render('create-question', { vacancy, questions: questionsSvc.listForVacancy(vacancy.id), error: null, values: {} });
+  res.render('admin/question-bank', { vacancy, questions: questionsSvc.listForVacancy(vacancy.id), error: null, values: {} });
 };
 
 const questionIndex = (req, res) => {
@@ -102,7 +102,7 @@ const createQuestion = (req, res) => {
     option_c: String(b.option_c || '').trim(), option_d: String(b.option_d || '').trim(),
     correct_option: String(b.correct_option || '').trim().toUpperCase()
   };
-  const fail = (msg) => res.status(400).render('create-question', { vacancy, questions, error: msg, values });
+  const fail = (msg) => res.status(400).render('admin/question-bank', { vacancy, questions, error: msg, values });
 
   if (vacancy.category !== 'non-academic') return fail('Online tests apply to non-academic vacancies only.');
   if (!exam.SECTIONS.includes(values.section)) return fail('Please choose a section.');

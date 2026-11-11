@@ -15,7 +15,6 @@ const recentFails = (key) => {
   attempts.set(key, list);
   return list;
 };
-const resetAttempts = () => attempts.clear();
 
 const renderRegister = (res, status, errorMessage, values = {}) =>
   res.status(status).render('register', { errorMessage, values });
@@ -102,4 +101,4 @@ const logout = (req, res) => {
   });
 };
 
-module.exports = { register, login, logout, resetAttempts };
+module.exports = { register, login, logout };

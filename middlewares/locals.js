@@ -1,4 +1,4 @@
-const db = require('../models/db');
+const users = require('../services/users');
 const { unreadCount } = require('../services/notifications');
 const time = require('../utils/time');
 
@@ -7,7 +7,7 @@ module.exports = (req, res, next) => {
   res.locals.currentUser = null;
   res.locals.unreadCount = 0;
   if (req.session && req.session.userId) {
-    const u = db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(req.session.userId);
+    const u = users.findProfile(req.session.userId);
     if (u) {
       res.locals.currentUser = u;
       res.locals.unreadCount = unreadCount(u.id);

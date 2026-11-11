@@ -5,7 +5,7 @@ const getLogs = (req, res) => {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const action = (req.query.action || '').trim();
   const { logs, total, pages } = audit.listLogs({ page, action });
-  res.render('admin/audit_logs', { logs, page, pages, actions: audit.listActions(), action, total });
+  res.render('admin/audit-logs', { logs, page, pages, actions: audit.listActions(), action, total });
 };
 
 const getSessions = (req, res) => {

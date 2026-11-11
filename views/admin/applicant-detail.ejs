@@ -1,4 +1,4 @@
-<%- include('partials/header', { pageTitle: 'Applicant details' }) %>
+<%- include('../partials/header', { pageTitle: 'Applicant details' }) %>
 <% const academic = application.category === 'academic'; %>
 <div class="page-header no-print">
   <div><h1><%= application.applicant_name %></h1>
@@ -62,7 +62,7 @@
       </tbody>
     </table>
     <form action="/admin/applications/<%= application.id %>/academic-score" method="POST" class="no-print" style="margin-top:16px;">
-      <%- include('partials/csrf') %>
+      <%- include('../partials/csrf') %>
       <p class="hint mb-1">HR can correct the figures after verifying documents; points are recalculated.</p>
       <div class="form-row">
         <div class="form-group"><label>Highest qualification</label>
@@ -94,7 +94,7 @@
   <% } else { %><p class="text-muted">No interview result recorded yet.</p><% } %>
   <% if (application.shortlisted && ['Shortlisted','Recommended'].includes(application.status)) { %>
     <form action="/admin/applications/<%= application.id %>/interview" method="POST" class="no-print" style="margin-top:14px;background:#f7fafc;padding:16px;border-radius:8px;">
-      <%- include('partials/csrf') %>
+      <%- include('../partials/csrf') %>
       <div class="form-row">
         <div class="form-group"><label for="interview_score">Interview score (0-100)</label>
           <input type="number" id="interview_score" name="interview_score" min="0" max="100" value="<%= application.interview_score ?? '' %>" required></div>
@@ -110,4 +110,4 @@
     <p class="hint">Interview results can be recorded only for shortlisted candidates.</p>
   <% } %>
 </div>
-<%- include('partials/footer') %>
+<%- include('../partials/footer') %>

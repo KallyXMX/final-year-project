@@ -1,4 +1,4 @@
-<%- include('partials/header', { pageTitle: 'Applicants' }) %>
+<%- include('../partials/header', { pageTitle: 'Applicants' }) %>
 <% const nonAcad = vacancy.category === 'non-academic'; %>
 <div class="page-header">
   <div><h1>Applicants: <%= vacancy.title %></h1>
@@ -12,12 +12,12 @@
   <div class="actions">
     <% if (vacancy.state !== 'Closed') { %>
       <form action="/admin/vacancies/<%= vacancy.id %>/close" method="POST" onsubmit="return confirm('Close recruitment now? No further applications will be accepted.');">
-        <%- include('partials/csrf') %><button class="btn btn-warning btn-sm btn-auto">Close recruitment now</button></form>
+        <%- include('../partials/csrf') %><button class="btn btn-warning btn-sm btn-auto">Close recruitment now</button></form>
     <% } else if (!vacancy.shortlisted_at && !vacancy.deadline_passed) { %>
-      <form action="/admin/vacancies/<%= vacancy.id %>/reopen" method="POST"><%- include('partials/csrf') %>
+      <form action="/admin/vacancies/<%= vacancy.id %>/reopen" method="POST"><%- include('../partials/csrf') %>
         <button class="btn btn-secondary btn-sm btn-auto">Reopen recruitment</button></form>
     <% } %>
-    <form action="/admin/vacancies/<%= vacancy.id %>/shortlist" method="POST"><%- include('partials/csrf') %>
+    <form action="/admin/vacancies/<%= vacancy.id %>/shortlist" method="POST"><%- include('../partials/csrf') %>
       <button class="btn btn-primary btn-sm btn-auto" <%= (vacancy.state !== 'Closed' || pending === 0) ? 'disabled' : '' %>>Run Auto-Shortlisting (<%= pending %> pending)</button></form>
     <% if (nonAcad) { %>
       <a href="/admin/vacancies/<%= vacancy.id %>/exam" class="btn btn-secondary btn-sm">Schedule / configure exam</a>
@@ -49,7 +49,7 @@
         <td><span class="badge status-<%= a.status %>"><%= a.status %></span></td>
         <td>
           <% if (!['Accepted'].includes(a.status)) { %>
-          <form action="/applications/<%= a.id %>/status" method="POST" class="actions" style="gap:6px;"><%- include('partials/csrf') %>
+          <form action="/applications/<%= a.id %>/status" method="POST" class="actions" style="gap:6px;"><%- include('../partials/csrf') %>
             <% if (['Shortlisted','Recommended'].includes(a.status)) { %><button name="status" value="Accepted" class="btn btn-success btn-sm">Accept</button><% } %>
             <% if (a.status !== 'Rejected') { %><button name="status" value="Rejected" class="btn btn-danger btn-sm">Reject</button><% } %>
           </form><% } %>
@@ -58,4 +58,4 @@
     <% }) %>
     </tbody></table></div>
 <% } %>
-<%- include('partials/footer') %>
+<%- include('../partials/footer') %>
