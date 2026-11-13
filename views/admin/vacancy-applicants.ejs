@@ -1,5 +1,5 @@
 <%- include('../partials/header', { pageTitle: 'Applicants' }) %>
-<% const nonAcad = vacancy.category === 'non-academic'; %>
+<% const nonAcad = vacancy.category === 'non-academic'; const usesExam = vacancy.usesExam; %>
 <div class="page-header">
   <div><h1>Applicants: <%= vacancy.title %></h1>
     <p class="sub"><%= vacancy.department %> &middot; <%= nonAcad ? 'Non-academic' : 'Academic' %> &middot;
@@ -19,15 +19,16 @@
     <% } %>
     <form action="/admin/vacancies/<%= vacancy.id %>/shortlist" method="POST"><%- include('../partials/csrf') %>
       <button class="btn btn-primary btn-sm btn-auto" <%= (vacancy.state !== 'Closed' || pending === 0) ? 'disabled' : '' %>>Run Auto-Shortlisting (<%= pending %> pending)</button></form>
-    <% if (nonAcad) { %>
+    <% if (usesExam) { %>
       <a href="/admin/vacancies/<%= vacancy.id %>/exam" class="btn btn-secondary btn-sm">Schedule / configure exam</a>
       <a href="/admin/vacancies/<%= vacancy.id %>/questions" class="btn btn-secondary btn-sm">Question bank (<%= questionCount %>)</a>
     <% } %>
+    <a href="/admin/vacancies/<%= vacancy.id %>/settings" class="btn btn-secondary btn-sm">Points &amp; exam settings</a>
     <a href="/admin/reports/applicants/csv?vacancy_id=<%= vacancy.id %>" class="btn btn-secondary btn-sm">Applicants CSV</a>
     <a href="/admin/reports/merit/pdf?vacancy_id=<%= vacancy.id %>" class="btn btn-secondary btn-sm">Merit list PDF</a>
   </div>
   <p class="hint" style="margin-top:10px;">Shortlisting checks each applicant against the vacancy's minimum qualification (<%= vacancy.min_qualification %>) and experience (<%= vacancy.min_experience_years %> yr) and notifies them. It runs automatically once the vacancy closes.
-    <% if (nonAcad && vacancy.exam_start) { %> Exam: <%= fmtDateTime(vacancy.exam_start) %> &rarr; <%= fmtDateTime(vacancy.exam_end) %> (pass mark <%= vacancy.pass_mark %>%).<% } %></p>
+    <% if (usesExam && vacancy.exam_start) { %> Exam: <%= fmtDateTime(vacancy.exam_start) %> &rarr; <%= fmtDateTime(vacancy.exam_end) %> (pass mark <%= vacancy.pass_mark %>%).<% } %></p>
 </div>
 
 <% if (applications.length === 0) { %>
@@ -35,7 +36,7 @@
 <% } else { %>
   <div class="table-wrap"><table>
     <thead><tr><th>Applicant</th><th>Qualification</th><th>Exp.</th>
-      <th><%= nonAcad ? 'Exam' : 'Academic pts' %></th><th>Interview</th><th>Status</th><th>Decision</th></tr></thead>
+      <% if (!nonAcad) { %><th>Academic pts</th><% } %><% if (usesExam) { %><th>Exam</th><% } %><th>Interview</th><th>Status</th><th>Decision</th></tr></thead>
     <tbody>
     <% applications.forEach(a => { %>
       <tr>
@@ -43,8 +44,8 @@
           <a href="/admin/applications/<%= a.id %>" style="font-size:12px;">Details &amp; documents</a></td>
         <td><%= a.highest_qualification || '—' %></td>
         <td><%= a.experience_years || 0 %></td>
-        <td><% if (nonAcad) { %><%= a.percentage !== null ? (+a.percentage).toFixed(1) + '% (' + a.score + '/' + a.total_questions + ')' : 'Not taken' %>
-            <% } else { %><%= a.academic_score %><% } %></td>
+        <% if (!nonAcad) { %><td><%= capScore(a.academic_score) %></td><% } %>
+        <% if (usesExam) { %><td><%= a.percentage !== null ? (+a.percentage).toFixed(1) + '% (' + a.score + '/' + a.total_questions + ')' : 'Not taken' %></td><% } %>
         <td><%= a.interview_score !== null ? a.interview_score : '—' %></td>
         <td><span class="badge status-<%= a.status %>"><%= a.status %></span></td>
         <td>

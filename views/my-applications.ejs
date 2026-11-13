@@ -5,22 +5,22 @@
   <div class="empty">You haven't submitted any applications yet.<br><a href="/vacancies">Explore available vacancies &rarr;</a></div>
 <% } else { %>
   <% applications.forEach(a => {
-       const nonAcad = a.category === 'non-academic';
+       const nonAcad = a.usesExam;
        const steps = [];
        steps.push({ t: 'Applied', c: 'done' });
        const decided = a.status !== 'Pending';
        steps.push({ t: 'Shortlisting', c: !decided ? 'current' : (a.shortlisted ? 'done' : 'bad') });
        if (a.shortlisted || !decided) {
          if (nonAcad) steps.push({ t: 'CBT exam', c: a.exam_completed ? 'done' : (a.shortlisted && a.status === 'Shortlisted' ? 'current' : '') });
-         else steps.push({ t: 'Qualification evaluation', c: a.shortlisted ? 'done' : '' });
-         steps.push({ t: 'Physical interview', c: ['Recommended','Accepted'].includes(a.status) ? 'done' : (a.status === 'Shortlisted' && (a.exam_completed || !nonAcad) ? 'current' : '') });
+         if (a.category === 'academic') steps.push({ t: 'Qualification evaluation', c: a.shortlisted ? 'done' : '' });
+         steps.push({ t: 'Physical interview', c: ['Recommended','Accepted'].includes(a.status) ? 'done' : (a.status === 'Shortlisted' && (a.exam_completed || !a.usesExam) ? 'current' : '') });
          steps.push({ t: 'Final decision', c: a.status === 'Accepted' ? 'done' : (a.status === 'Rejected' && a.shortlisted ? 'bad' : '') });
        }
   %>
     <div class="card">
       <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div><h2 style="font-size:18px;"><%= a.job_title %></h2>
-          <p class="text-muted" style="font-size:13px;"><%= a.department %> &middot; <%= nonAcad ? 'Non-academic' : 'Academic' %> &middot; applied <%= fmtDate(a.applied_at) %></p></div>
+          <p class="text-muted" style="font-size:13px;"><%= a.department %> &middot; <%= a.category === 'academic' ? 'Academic' : 'Non-academic' %> &middot; applied <%= fmtDate(a.applied_at) %></p></div>
         <div><span class="badge status-<%= a.status %>" style="font-size:13px;"><%= a.status %></span></div>
       </div>
       <ul class="timeline"><% steps.forEach(s => { %><li class="<%= s.c %>"><%= s.t %></li><% }) %></ul>

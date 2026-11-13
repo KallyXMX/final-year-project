@@ -72,7 +72,7 @@
   </div>
 
 <% } else { %>
-  <% const toExam = myApplications.filter(a => a.category === 'non-academic' && a.status === 'Shortlisted' && !a.exam_completed); %>
+  <% const toExam = myApplications.filter(a => (a.category === 'non-academic' || Number(a.academic_exam_enabled) === 1) && a.status === 'Shortlisted' && !a.exam_completed); %>
   <% if (toExam.length > 0) { %>
     <div class="alert alert-info"><strong>You have been shortlisted.</strong> Your computer-based test is waiting in
       <a href="/my-applications">My Applications</a>.</div>

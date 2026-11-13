@@ -7,6 +7,7 @@
   <div class="card">
     <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
     <p class="text-muted mb-2" style="font-size:14px;"><strong>Requirements:</strong> <%= vacancy.requirements %></p>
+    <% if (academic) { %><%- include('partials/points-scheme', { job: vacancy }) %><div class="mb-2"></div><% } %>
     <form action="/vacancies/<%= vacancy.id %>/apply?_csrf=<%= csrfToken %>" method="POST" enctype="multipart/form-data">
       <fieldset><legend>Contact details</legend>
         <div class="form-row">

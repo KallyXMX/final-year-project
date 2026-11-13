@@ -54,11 +54,11 @@
     <table>
       <thead><tr><th>Criteria</th><th>Applicant details</th><th>Points</th></tr></thead>
       <tbody>
-        <tr><td>Degree qualification <small>(PhD=<%= POINTS.phd %>, Masters=<%= POINTS.master %>, Bachelor=<%= POINTS.bachelor %>)</small></td><td><%= application.highest_qualification || 'N/A' %></td><td><%= breakdown.degreePoints %></td></tr>
-        <tr><td>Teaching experience <small>(<%= POINTS.perYearExperience %> pts / year)</small></td><td><%= application.experience_years || 0 %> years</td><td><%= breakdown.expPoints %></td></tr>
-        <tr><td>Journal publications <small>(<%= POINTS.perPublication %> pts each)</small></td><td><%= application.journal_publications_count %></td><td><%= breakdown.pubPoints %></td></tr>
-        <tr><td>Seminars &amp; workshops <small>(<%= POINTS.perSeminar %> pts each)</small></td><td><%= application.seminars_attended %></td><td><%= breakdown.semPoints %></td></tr>
-        <tr><td colspan="2" style="text-align:right;"><strong>Total academic score</strong></td><td><strong><%= application.academic_score %> points</strong></td></tr>
+        <tr><td>Degree qualification <small>(PhD=<%= scheme.phd %>, Masters=<%= scheme.master %>, Bachelor=<%= scheme.bachelor %>)</small></td><td><%= application.highest_qualification || 'N/A' %></td><td><%= breakdown.degreePoints %></td></tr>
+        <tr><td>Teaching experience <small>(<%= scheme.perYearExperience %> pts / year)</small></td><td><%= application.experience_years || 0 %> years</td><td><%= breakdown.expPoints %></td></tr>
+        <tr><td>Journal publications <small>(<%= scheme.perPublication %> pts each)</small></td><td><%= application.journal_publications_count %></td><td><%= breakdown.pubPoints %></td></tr>
+        <tr><td>Seminars &amp; workshops <small>(<%= scheme.perSeminar %> pts each)</small></td><td><%= application.seminars_attended %></td><td><%= breakdown.semPoints %></td></tr>
+        <tr><td colspan="2" style="text-align:right;"><strong>Total academic score</strong></td><td><strong><%= capScore(application.academic_score) %> points</strong><% if (breakdown.raw > 100) { %><br><small class="text-muted">(<%= breakdown.raw %> before the cap of 100)</small><% } %></td></tr>
       </tbody>
     </table>
     <form action="/admin/applications/<%= application.id %>/academic-score" method="POST" class="no-print" style="margin-top:16px;">
@@ -74,7 +74,8 @@
       <button class="btn btn-secondary btn-sm btn-auto">Recalculate score</button>
     </form>
   </div>
-<% } else { %>
+<% } %>
+<% if (usesExam) { %>
   <div class="card">
     <h3 style="margin-bottom:12px;">Computer-based test</h3>
     <% if (!exam) { %><p class="text-muted">The applicant has not taken the exam.</p><% } else { %>

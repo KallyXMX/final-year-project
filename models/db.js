@@ -168,6 +168,17 @@ const initSchema = () => {
   addColumn('vacancies', 'pass_mark', 'INTEGER DEFAULT 50');
   addColumn('vacancies', 'questions_per_section', 'INTEGER DEFAULT 10');
   addColumn('vacancies', 'exam_notified_at', 'TEXT');
+  // Per-vacancy points scheme, academic exam switch and optional sections (defaults = previous behaviour).
+  addColumn('vacancies', 'pts_phd', 'INTEGER DEFAULT 40');
+  addColumn('vacancies', 'pts_master', 'INTEGER DEFAULT 25');
+  addColumn('vacancies', 'pts_bachelor', 'INTEGER DEFAULT 10');
+  addColumn('vacancies', 'pts_per_year', 'INTEGER DEFAULT 5');
+  addColumn('vacancies', 'pts_per_publication', 'INTEGER DEFAULT 4');
+  addColumn('vacancies', 'pts_per_seminar', 'INTEGER DEFAULT 2');
+  addColumn('vacancies', 'academic_exam_enabled', 'INTEGER DEFAULT 0');
+  addColumn('vacancies', 'aptitude_enabled', 'INTEGER DEFAULT 1');
+  addColumn('vacancies', 'literacy_enabled', 'INTEGER DEFAULT 1');
+  db.prepare('UPDATE applications SET academic_score = 100 WHERE academic_score > 100').run(); // scores are capped at 100
 
   addColumn('applications', 'status_note', 'TEXT');
   addColumn('applications', 'shortlisted', 'INTEGER DEFAULT 0');

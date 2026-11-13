@@ -29,4 +29,7 @@ const examState = (v, now = new Date()) => {
 
 const isAcademic = (v) => v && v.category === 'academic';
 
-module.exports = { vacancyState, examState, examWindow, isAcademic };
+// Does this vacancy use the online exam? Always for non-academic; for academic only when HR switched it on.
+const hasExam = (v) => !!v && (v.category !== 'academic' || Number(v.academic_exam_enabled) === 1);
+
+module.exports = { vacancyState, examState, examWindow, isAcademic, hasExam };

@@ -14,7 +14,7 @@
       <div class="form-group"><label for="category">Recruitment type</label>
         <select id="category" name="category">
           <option value="non-academic" <%= values.category !== 'academic' ? 'selected' : '' %>>Non-academic (aptitude + computer literacy tests)</option>
-          <option value="academic" <%= values.category === 'academic' ? 'selected' : '' %>>Academic (qualification points, no online test)</option>
+          <option value="academic" <%= values.category === 'academic' ? 'selected' : '' %>>Academic (qualification points; online test optional)</option>
         </select>
         <p class="hint">Academic and non-academic vacancies follow different workflows after shortlisting.</p></div>
       <div class="form-group"><label for="description">Job description</label>
@@ -33,6 +33,7 @@
             <input type="number" id="min_experience_years" name="min_experience_years" min="0" max="60" value="<%= values.min_experience_years ?? 0 %>"></div>
         </div>
       </fieldset>
+      <%- include('../partials/vacancy-settings-fields', { values, lockExam: false }) %>
       <div class="form-row">
         <div class="form-group"><label for="opens_at">Applications open on</label>
           <input type="date" id="opens_at" name="opens_at" value="<%= values.opens_at || '' %>" required></div>

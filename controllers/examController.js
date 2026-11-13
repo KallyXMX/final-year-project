@@ -6,6 +6,7 @@ const questionsSvc = require('../services/questions');
 const { logAction } = require('../services/audit');
 const exam = require('../services/exam');
 const { redirectWith } = require('../utils/http');
+const { hasExam } = require('../utils/vacancy');
 
 const loadContext = (req) => {
   const vacancy = vacanciesSvc.findById(req.params.vacancyId);
@@ -83,12 +84,12 @@ const renderResult = (req, res) => {
 const renderQuestionBank = (req, res) => {
   const vacancy = vacanciesSvc.findById(req.params.id);
   if (!vacancy) return res.status(404).render('404');
-  res.render('admin/question-bank', { vacancy, questions: questionsSvc.listForVacancy(vacancy.id), error: null, values: {} });
+  res.render('admin/question-bank', { vacancy, usesExam: hasExam(vacancy), questions: questionsSvc.listForVacancy(vacancy.id), error: null, values: {} });
 };
 
 const questionIndex = (req, res) => {
-  const list = vacanciesSvc.listNonAcademic();
-  if (list.length === 0) return redirectWith(res, '/vacancies', 'Create a non-academic vacancy first; online tests apply to those.', 'error');
+  const list = vacanciesSvc.listWithExam();
+  if (list.length === 0) return redirectWith(res, '/vacancies', 'Create a non-academic vacancy (or enable the exam on an academic one) first.', 'error');
   return res.redirect(`/admin/vacancies/${req.query.vacancy_id || list[0].id}/questions`);
 };
 
@@ -104,9 +105,9 @@ const createQuestion = (req, res) => {
     option_c: String(b.option_c || '').trim(), option_d: String(b.option_d || '').trim(),
     correct_option: String(b.correct_option || '').trim().toUpperCase()
   };
-  const fail = (msg) => res.status(400).render('admin/question-bank', { vacancy, questions, error: msg, values });
+  const fail = (msg) => res.status(400).render('admin/question-bank', { vacancy, usesExam: hasExam(vacancy), questions, error: msg, values });
 
-  if (vacancy.category !== 'non-academic') return fail('Online tests apply to non-academic vacancies only.');
+  if (!hasExam(vacancy)) return fail('The online test is not enabled for this vacancy.');
   if (!exam.SECTIONS.includes(values.section)) return fail('Please choose a section.');
   if (!values.question_text || !values.option_a || !values.option_b || !values.option_c || !values.option_d) return fail('The question and all four options are required.');
   if (!['A', 'B', 'C', 'D'].includes(values.correct_option)) return fail('Please select the correct option.');

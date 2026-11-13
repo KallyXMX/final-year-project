@@ -1,7 +1,7 @@
 // Examination engine (Requirement 4.4): eligibility, random paper, section timers, auto-submit, auto-marking,
 // weighted scoring and pass mark. Layer: Application.
 const db = require('../models/db');
-const { examState, isAcademic } = require('../utils/vacancy');
+const { examState, hasExam } = require('../utils/vacancy');
 const { parseDbDate } = require('../utils/time');
 const { notify } = require('./notifications');
 const { logAction } = require('./audit');
@@ -13,17 +13,22 @@ const { STATUS } = require('../utils/constants');
 const SECTIONS = ['Aptitude', 'Computer Literacy'];
 const GRACE_MS = 15 * 1000; // network latency allowance for auto-submitted answers
 
-const sectionConfig = (v) => [
-  { name: 'Aptitude', minutes: v.aptitude_minutes || 20, weight: v.aptitude_weight ?? 50 },
-  { name: 'Computer Literacy', minutes: v.literacy_minutes || 20, weight: v.literacy_weight ?? 50 }
-];
+// Sections HR has switched on (old rows have NULL = on). With only one section on it carries the full weight.
+const sectionConfig = (v) => {
+  const all = [
+    { name: 'Aptitude', on: v.aptitude_enabled !== 0 && v.aptitude_enabled !== null, minutes: v.aptitude_minutes || 20, weight: v.aptitude_weight ?? 50 },
+    { name: 'Computer Literacy', on: v.literacy_enabled !== 0 && v.literacy_enabled !== null, minutes: v.literacy_minutes || 20, weight: v.literacy_weight ?? 50 }
+  ].filter((s) => s.on);
+  const list = all.length ? all : [{ name: 'Aptitude', minutes: v.aptitude_minutes || 20, weight: 50 }]; // defensive: never zero sections
+  return list.map(({ name, minutes, weight }) => ({ name, minutes, weight: list.length === 1 ? 100 : weight }));
+};
 
 const sectionDeadline = (s) => new Date(parseDbDate(s.started_at).getTime() + s.minutes * 60000);
 
 // Can this application sit the exam right now? Returns { ok, reason }.
 const eligibility = (application, vacancy, now = new Date()) => {
   if (!application) return { ok: false, reason: 'You have not applied for this vacancy.' };
-  if (isAcademic(vacancy)) return { ok: false, reason: 'Academic positions are assessed on qualifications; there is no online test for this vacancy.' };
+  if (!hasExam(vacancy)) return { ok: false, reason: 'Academic positions are assessed on qualifications; there is no online test for this vacancy.' };
   if (application.exam_completed) return { ok: false, reason: 'You have already completed this examination.' };
   if (application.status !== STATUS.SHORTLISTED) {
     return { ok: false, reason: application.status === STATUS.PENDING

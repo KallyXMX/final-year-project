@@ -27,13 +27,16 @@
       <p style="margin-top:8px;font-size:13px;color:#4a5568;">Minimum: <strong><%= job.min_qualification === 'None' ? 'No minimum qualification' : job.min_qualification %></strong>
         <% if (job.min_qualification !== 'None') { %> degree level<% } %> &middot; <strong><%= job.min_experience_years %></strong> year(s) experience</p>
 
+      <% if (job.category === 'academic') { %><%- include('partials/points-scheme', { job }) %><% } %>
+
       <div class="actions" style="margin-top:16px;">
         <% if (isAdmin) { %>
           <span class="text-muted" style="font-size:13px;"><%= job.application_count %> application(s)</span>
           <a href="/vacancies/<%= job.id %>/applications" class="btn btn-secondary btn-sm">View Applications</a>
-          <% if (job.category === 'non-academic') { %>
+          <% if (job.category === 'non-academic' || Number(job.academic_exam_enabled) === 1) { %>
             <a href="/admin/vacancies/<%= job.id %>/questions" class="btn btn-secondary btn-sm">Question Bank</a>
           <% } %>
+          <a href="/admin/vacancies/<%= job.id %>/settings" class="btn btn-secondary btn-sm">Points &amp; exam settings</a>
         <% } else if (!me) { %>
           <% if (job.state === 'Open') { %><a href="/login" class="btn btn-primary btn-sm">Log in to apply</a><% } %>
         <% } else if (myApps[job.id]) { %>

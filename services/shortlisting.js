@@ -3,7 +3,7 @@
 // Layer: Application.
 const db = require('../models/db');
 const { levelOf, LEVEL_LABELS } = require('../utils/qualifications');
-const { vacancyState, examState } = require('../utils/vacancy');
+const { vacancyState, examState, hasExam } = require('../utils/vacancy');
 const { fmtDateTime } = require('../utils/time');
 const { notify } = require('./notifications');
 const { logAction } = require('./audit');
@@ -43,7 +43,7 @@ const shortlistVacancy = (vacancyId, actorId = null, req = null) => {
         shortlisted++;
         let note = 'Meets the minimum requirements for this vacancy.';
         let msg = `Congratulations! You have been shortlisted for "${vacancy.title}".`;
-        if (vacancy.category === 'non-academic') {
+        if (hasExam(vacancy)) {
           msg += examState(vacancy) === 'NotScheduled'
             ? ' You will be notified when the aptitude and computer literacy tests are scheduled.'
             : ` Your tests open ${fmtDateTime(vacancy.exam_start)} and close ${fmtDateTime(vacancy.exam_end)}.`;

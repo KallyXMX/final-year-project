@@ -10,7 +10,9 @@ const { logAction } = require('../services/audit');
 const { notify } = require('../services/notifications');
 const { shortlistVacancy } = require('../services/shortlisting');
 const { vacancyState } = require('../utils/vacancy');
-const { academicBreakdown, splitLines, POINTS } = require('../utils/qualifications');
+const { academicBreakdown, schemeOf, splitLines } = require('../utils/qualifications');
+const examSvc = require('../services/exam');
+const { hasExam } = require('../utils/vacancy');
 const { localInputToIso, isoToLocalInput, fmtDateTime } = require('../utils/time');
 const { redirectWith, toInt } = require('../utils/http');
 const { STATUS, QUALIFICATIONS } = require('../utils/constants');
@@ -32,11 +34,12 @@ const renderApplicationDetail = (req, res) => {
   const application = applicationsSvc.findDetail(req.params.id);
   if (!application) return res.status(404).render('404');
 
-  const breakdown = academicBreakdown(application);
+  const scheme = schemeOf(application);
+  const breakdown = academicBreakdown(application, scheme);
   const exam = applicationsSvc.findExamResult(application.user_id, application.vacancy_id);
   const sectionScores = exam && exam.section_scores ? JSON.parse(exam.section_scores) : [];
   res.render('admin/applicant-detail', {
-    application, breakdown, POINTS, exam, sectionScores,
+    application, breakdown, scheme, exam, sectionScores, usesExam: hasExam(application),
     lists: {
       qualifications: splitLines(application.qualifications_text),
       experience: splitLines(application.experience_text),
@@ -57,7 +60,8 @@ const calculateAcademicScore = (req, res) => {
     journal_publications_count: Math.min(500, Math.max(0, toInt(req.body.journal_publications_count, app.journal_publications_count))),
     seminars_attended: Math.min(500, Math.max(0, toInt(req.body.seminars_attended, app.seminars_attended)))
   };
-  const total = academicBreakdown(data).total;
+  const vacancy = vacanciesSvc.findById(app.vacancy_id);
+  const total = academicBreakdown(data, schemeOf(vacancy)).total;
   applicationsSvc.updateAcademicFigures(app.id, data, total);
   logAction(req.session.userId, 'SCORE_CHANGE', `HR re-evaluated academic score for application ID ${app.id}: ${app.academic_score} -> ${total} points.`, req);
   return redirectWith(res, `/admin/applications/${app.id}`, `Academic score updated: ${total} points.`);
@@ -109,23 +113,25 @@ const renderExamSettings = (req, res) => {
   res.render('admin/exam-settings', {
     vacancy, error: null,
     values: { ...vacancy, exam_start: isoToLocalInput(vacancy.exam_start), exam_end: isoToLocalInput(vacancy.exam_end) },
-    counts: questionsSvc.countsBySection(vacancy.id)
+    counts: questionsSvc.countsBySection(vacancy.id),
+    sections: examSvc.sectionConfig(vacancy).map((s) => s.name)
   });
 };
 
 const saveExamSettings = (req, res) => {
   const vacancy = vacanciesSvc.findById(req.params.id);
   if (!vacancy) return res.status(404).render('404');
-  if (vacancy.category !== 'non-academic') return redirectWith(res, `/vacancies/${vacancy.id}/applications`, 'Online tests apply to non-academic vacancies only.', 'error');
+  if (!hasExam(vacancy)) return redirectWith(res, `/vacancies/${vacancy.id}/applications`, 'The online test is not enabled for this vacancy. Switch it on in the vacancy settings first.', 'error');
   const b = req.body;
   const v = {
     exam_start: String(b.exam_start || ''), exam_end: String(b.exam_end || ''),
-    aptitude_minutes: toInt(b.aptitude_minutes, 20), literacy_minutes: toInt(b.literacy_minutes, 20),
-    aptitude_weight: toInt(b.aptitude_weight, 50), literacy_weight: toInt(b.literacy_weight, 50),
+    aptitude_minutes: toInt(b.aptitude_minutes, vacancy.aptitude_minutes ?? 20), literacy_minutes: toInt(b.literacy_minutes, vacancy.literacy_minutes ?? 20),
+    aptitude_weight: toInt(b.aptitude_weight, vacancy.aptitude_weight ?? 50), literacy_weight: toInt(b.literacy_weight, vacancy.literacy_weight ?? 50),
     pass_mark: toInt(b.pass_mark, 50), questions_per_section: toInt(b.questions_per_section, 10)
   };
   const counts = questionsSvc.countsBySection(vacancy.id);
-  const fail = (msg) => res.status(400).render('admin/exam-settings', { vacancy, error: msg, values: v, counts });
+  const sections = examSvc.sectionConfig(vacancy).map((s) => s.name);
+  const fail = (msg) => res.status(400).render('admin/exam-settings', { vacancy, error: msg, values: v, counts, sections });
 
   const startIso = localInputToIso(v.exam_start);
   const endIso = localInputToIso(v.exam_end);
@@ -133,18 +139,19 @@ const saveExamSettings = (req, res) => {
   if (new Date(endIso) <= new Date(startIso)) return fail('The exam end must be after the start.');
   if (new Date(endIso) < new Date()) return fail('The exam window must end in the future.');
   if (v.aptitude_minutes < 1 || v.aptitude_minutes > 180 || v.literacy_minutes < 1 || v.literacy_minutes > 180) return fail('Section durations must be between 1 and 180 minutes.');
-  if (v.aptitude_weight < 0 || v.literacy_weight < 0 || v.aptitude_weight + v.literacy_weight <= 0) return fail('Section weights must be non-negative and not both zero.');
+  // Weights only matter when both sections are on; a single section always counts at full weight.
+  if (sections.length > 1 && (v.aptitude_weight < 0 || v.literacy_weight < 0 || v.aptitude_weight + v.literacy_weight <= 0)) return fail('Section weights must be non-negative and not both zero.');
   if (v.pass_mark < 0 || v.pass_mark > 100) return fail('Pass mark must be between 0 and 100.');
   if (v.questions_per_section < 1 || v.questions_per_section > 100) return fail('Questions per section must be between 1 and 100.');
-  if (!counts['Aptitude'] && !counts['Computer Literacy']) return fail('Add questions to the question bank before scheduling the exam.');
+  if (!sections.some((n) => counts[n])) return fail(`Add questions to the question bank (${sections.join(' / ')}) before scheduling the exam.`);
 
   vacanciesSvc.saveExamSettings(vacancy.id, { ...v, exam_start: startIso, exam_end: endIso });
-  logAction(req.session.userId, 'EXAM_SCHEDULED', `Exam scheduled for vacancy ID ${vacancy.id}: ${fmtDateTime(startIso)} to ${fmtDateTime(endIso)}, pass mark ${v.pass_mark}%.`, req);
+  logAction(req.session.userId, 'EXAM_SCHEDULED', `Exam scheduled for vacancy ID ${vacancy.id}: ${fmtDateTime(startIso)} to ${fmtDateTime(endIso)}, pass mark ${v.pass_mark}%, sections: ${sections.join(' + ')}, minutes ${v.aptitude_minutes}/${v.literacy_minutes}, weights ${v.aptitude_weight}/${v.literacy_weight}, ${v.questions_per_section} questions per section.`, req);
 
   // Tell shortlisted applicants who have not yet taken the exam.
   const targets = applicationsSvc.awaitingExam(vacancy.id);
   targets.forEach((t) => notify(t.user_id,
-    `Your aptitude and computer literacy tests for "${vacancy.title}" are scheduled: opens ${fmtDateTime(startIso)}, closes ${fmtDateTime(endIso)}.`, '/my-applications'));
+    `Your ${sections.join(' and ').toLowerCase()} test${sections.length > 1 ? 's' : ''} for "${vacancy.title}" are scheduled: opens ${fmtDateTime(startIso)}, closes ${fmtDateTime(endIso)}.`, '/my-applications'));
   return redirectWith(res, `/vacancies/${vacancy.id}/applications`, `Exam scheduled. ${targets.length} shortlisted applicant(s) notified.`);
 };
 

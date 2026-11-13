@@ -3,8 +3,8 @@
   <div class="actions"><a href="/admin/vacancies/<%= vacancy.id %>/exam" class="btn btn-secondary btn-sm">Schedule exam</a>
   <a href="/vacancies/<%= vacancy.id %>/applications">&larr; Back to applicants</a></div></div>
 
-<% if (vacancy.category !== 'non-academic') { %>
-  <div class="alert alert-warn">This is an academic vacancy: no online test is used.</div>
+<% if (!usesExam) { %>
+  <div class="alert alert-warn">The online exam is switched off for this academic vacancy. <a href="/admin/vacancies/<%= vacancy.id %>/settings">Turn it on in the vacancy settings</a>.</div>
 <% } else { %>
 <div class="grid grid-2">
   <div class="card" style="margin:0">

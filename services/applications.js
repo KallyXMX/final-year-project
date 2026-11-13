@@ -31,7 +31,7 @@ const insert = (a) => db.prepare(`
 // Applicant's own list, with the exam result when there is one.
 const listForUser = (userId) => db.prepare(`
   SELECT a.*, v.title AS job_title, v.department, v.category, v.deadline, v.exam_start, v.exam_end, v.pass_mark, v.shortlisted_at,
-         v.opens_at, v.closed_at, v.id AS vid,
+         v.opens_at, v.closed_at, v.id AS vid, v.academic_exam_enabled,
          er.score AS exam_correct, er.total_questions AS exam_total, er.percentage AS exam_pct, er.passed AS exam_passed
   FROM applications a
   JOIN vacancies v ON v.id = a.vacancy_id
@@ -40,7 +40,7 @@ const listForUser = (userId) => db.prepare(`
 
 // Short list for the applicant dashboard.
 const listForDashboard = (userId) => db.prepare(`
-  SELECT a.*, v.title AS vacancy_title, v.category FROM applications a JOIN vacancies v ON a.vacancy_id = v.id
+  SELECT a.*, v.title AS vacancy_title, v.category, v.academic_exam_enabled FROM applications a JOIN vacancies v ON a.vacancy_id = v.id
   WHERE a.user_id = ? ORDER BY a.applied_at DESC`).all(userId);
 
 // HR view: every applicant of one vacancy.
@@ -74,7 +74,8 @@ const search = ({ search: text, status, vacancy_id: vacancyId }) => {
 // One application with applicant and vacancy details (qualification summary for the panel, Requirement 4.5).
 const findDetail = (id) => db.prepare(`
   SELECT a.*, u.name AS applicant_name, u.email AS applicant_email, v.title AS vacancy_title, v.department,
-         v.category, v.min_qualification, v.min_experience_years, v.pass_mark
+         v.category, v.min_qualification, v.min_experience_years, v.pass_mark, v.academic_exam_enabled,
+         v.pts_phd, v.pts_master, v.pts_bachelor, v.pts_per_year, v.pts_per_publication, v.pts_per_seminar
   FROM applications a
   JOIN users u ON a.user_id = u.id
   JOIN vacancies v ON a.vacancy_id = v.id
@@ -91,6 +92,15 @@ const updateAcademicFigures = (id, d, total) => db.prepare(`
   seminars_attended = ?, academic_score = ? WHERE id = ?`)
   .run(d.highest_qualification, d.experience_years, d.journal_publications_count, d.seminars_attended, total, id);
 
+// Recalculate every academic score of one vacancy with `scoreOf(application)`; returns how many changed.
+const rescoreVacancy = (vacancyId, scoreOf) => {
+  const rows = db.prepare('SELECT * FROM applications WHERE vacancy_id = ?').all(vacancyId);
+  const upd = db.prepare('UPDATE applications SET academic_score = ? WHERE id = ?');
+  let changed = 0;
+  for (const r of rows) { const t = scoreOf(r); if (t !== r.academic_score) { upd.run(t, r.id); changed++; } }
+  return changed;
+};
+
 const saveInterview = (id, score, remarks, status) =>
   db.prepare('UPDATE applications SET interview_score = ?, interviewer_remarks = ?, status = ? WHERE id = ?').run(score, remarks, status, id);
 
@@ -103,5 +113,5 @@ const findExamResult = (userId, vacancyId) =>
 
 module.exports = {
   findById, findByUserAndVacancy, findWithVacancyTitle, statusByVacancy, insert, listForUser, listForDashboard,
-  listForVacancy, search, findDetail, countPending, setStatus, updateAcademicFigures, saveInterview, awaitingExam, findExamResult
+  listForVacancy, search, findDetail, countPending, setStatus, updateAcademicFigures, rescoreVacancy, saveInterview, awaitingExam, findExamResult
 };

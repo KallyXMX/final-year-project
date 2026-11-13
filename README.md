@@ -16,6 +16,7 @@ This is a full-stack Node.js MVC application designed to automate Bayero Univers
 - **Role-Based Access Control (RBAC):** Distinct dashboards and capabilities for Administrators and Applicants.
 - **Automated Shortlisting:** HR engine automatically evaluates applicant qualifications against minimum vacancy requirements.
 - **CBT Engine:** Dynamic, randomized, and timed computer-based testing for non-academic recruitment.
+- **Per-vacancy settings:** HR sets the academic points scheme (PhD / Master / Bachelor, per year, per publication, per seminar; academic score capped at 100), can switch the online exam on for an academic vacancy, and can switch the Aptitude or Computer Literacy section off (at least one stays on). Changes are audit-logged.
 - **Document Management:** Secure upload and HR review of Applicant CVs and supporting credentials.
 - **Analytics Dashboard:** Real-time metrics on user growth, job vacancies, applications, and average exam scores.
 - **PDF/CSV Reports:** Integrated reporting module for exporting HR merit lists and application logs.

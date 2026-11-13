@@ -16,6 +16,8 @@ router.get('/vacancies/create', requireAdmin, vacancyController.renderCreateForm
 router.post('/vacancies/create', requireAdmin, vacancyController.createVacancy);
 router.post('/admin/vacancies/:id/close', requireAdmin, vacancyController.closeVacancy);
 router.post('/admin/vacancies/:id/reopen', requireAdmin, vacancyController.reopenVacancy);
+router.get('/admin/vacancies/:id/settings', requireAdmin, vacancyController.renderVacancySettings);
+router.post('/admin/vacancies/:id/settings', requireAdmin, vacancyController.saveVacancySettings);
 router.get('/vacancies/:id/applications', requireAdmin, vacancyController.viewVacancyApplications);
 router.post('/applications/:applicationId/status', requireAdmin, vacancyController.updateApplicationStatus);
 

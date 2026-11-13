@@ -1,0 +1,9 @@
+<%# How an academic vacancy's score is worked out. Expects `job` (a vacancy row). %>
+<% const sch = schemeOf(job); %>
+<div class="points-scheme" style="margin-top:10px;font-size:13px;color:#4a5568;background:#f7fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;">
+  <strong>How academic points work:</strong>
+  PhD <strong><%= sch.phd %></strong> &middot; Master's <strong><%= sch.master %></strong> &middot; Bachelor's <strong><%= sch.bachelor %></strong>
+  &middot; <strong><%= sch.perYearExperience %></strong> per year of experience &middot; <strong><%= sch.perPublication %></strong> per publication
+  &middot; <strong><%= sch.perSeminar %></strong> per seminar. The total is capped at <strong>100</strong>.
+  <% if (Number(job.academic_exam_enabled) === 1) { %><br>Shortlisted applicants will also sit an online exam.<% } %>
+</div>

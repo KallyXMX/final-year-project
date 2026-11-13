@@ -2,6 +2,7 @@
 const users = require('../services/users');
 const { unreadCount } = require('../services/notifications');
 const time = require('../utils/time');
+const { capScore, schemeOf } = require('../utils/qualifications');
 
 // Exposes the current user, unread notification count and formatting helpers to every view.
 module.exports = (req, res, next) => {
@@ -18,6 +19,8 @@ module.exports = (req, res, next) => {
       req.session.role = null;
     }
   }
+  res.locals.capScore = capScore;
+  res.locals.schemeOf = schemeOf;
   res.locals.fmtDate = time.fmtDate;
   res.locals.fmtDateTime = time.fmtDateTime;
   res.locals.flash = req.query.msg ? { type: req.query.type === 'error' ? 'error' : 'success', text: String(req.query.msg).slice(0, 300) } : null;

@@ -4,11 +4,13 @@
     <a href="/vacancies/<%= vacancy.id %>/applications">&larr; Back to applicants</a></div>
   <div class="card">
     <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
-    <% if (vacancy.category !== 'non-academic') { %>
-      <div class="alert alert-warn">Online tests are used for non-academic vacancies only.</div>
+    <% if (vacancy.category === 'academic' && Number(vacancy.academic_exam_enabled) !== 1) { %>
+      <div class="alert alert-warn">The online exam is switched off for this academic vacancy.
+        <a href="/admin/vacancies/<%= vacancy.id %>/settings">Turn it on in the vacancy settings</a>.</div>
     <% } else { %>
     <p class="text-muted mb-2" style="font-size:14px;">Question bank: Aptitude <strong><%= counts['Aptitude'] || 0 %></strong>, Computer Literacy <strong><%= counts['Computer Literacy'] || 0 %></strong>.
-      <a href="/admin/vacancies/<%= vacancy.id %>/questions">Manage questions</a>. Shortlisted applicants are notified when the exam is scheduled.</p>
+      <a href="/admin/vacancies/<%= vacancy.id %>/questions">Manage questions</a>.
+      Sections on: <strong><%= sections.join(' + ') %></strong> (<a href="/admin/vacancies/<%= vacancy.id %>/settings">change</a>). Shortlisted applicants are notified when the exam is scheduled.</p>
     <form action="/admin/vacancies/<%= vacancy.id %>/exam" method="POST">
       <%- include('../partials/csrf') %>
       <fieldset><legend>Exam window (applicants may start within this period)</legend>
@@ -18,16 +20,20 @@
         </div></fieldset>
       <fieldset><legend>Sections &amp; scoring</legend>
         <div class="form-row">
+          <% if (sections.includes('Aptitude')) { %>
           <div class="form-group"><label>Aptitude: minutes</label><input type="number" name="aptitude_minutes" min="1" max="180" value="<%= values.aptitude_minutes %>"></div>
-          <div class="form-group"><label>Aptitude: weight</label><input type="number" name="aptitude_weight" min="0" value="<%= values.aptitude_weight %>"></div>
+          <% if (sections.length > 1) { %><div class="form-group"><label>Aptitude: weight</label><input type="number" name="aptitude_weight" min="0" value="<%= values.aptitude_weight %>"></div><% } %>
+          <% } %>
+          <% if (sections.includes('Computer Literacy')) { %>
           <div class="form-group"><label>Computer literacy: minutes</label><input type="number" name="literacy_minutes" min="1" max="180" value="<%= values.literacy_minutes %>"></div>
-          <div class="form-group"><label>Computer literacy: weight</label><input type="number" name="literacy_weight" min="0" value="<%= values.literacy_weight %>"></div>
+          <% if (sections.length > 1) { %><div class="form-group"><label>Computer literacy: weight</label><input type="number" name="literacy_weight" min="0" value="<%= values.literacy_weight %>"></div><% } %>
+          <% } %>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Questions per section (random)</label><input type="number" name="questions_per_section" min="1" max="100" value="<%= values.questions_per_section %>"></div>
           <div class="form-group"><label>Pass mark (%)</label><input type="number" name="pass_mark" min="0" max="100" value="<%= values.pass_mark %>"></div>
         </div>
-        <p class="hint mb-2">Each section has its own timer and is submitted automatically when time runs out. The final score is the weighted average of the section percentages.</p>
+        <p class="hint mb-2">Each section has its own timer and is submitted automatically when time runs out. <%= sections.length > 1 ? 'The final score is the weighted average of the section percentages.' : 'Only one section is on, so the final score is that section\'s percentage (full weight).' %></p>
       </fieldset>
       <button type="submit" class="btn btn-primary">Save &amp; notify shortlisted applicants</button>
     </form>

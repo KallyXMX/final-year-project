@@ -24,7 +24,7 @@
   <% applications.forEach(a => { %>
     <tr><td><strong><%= a.applicant_name %></strong><br><span class="text-muted" style="font-size:12px;"><%= a.applicant_email %></span></td>
       <td><%= a.vacancy_title %></td><td><%= fmtDate(a.applied_at) %></td>
-      <td><%= a.category === 'academic' ? a.academic_score + ' pts' : (a.percentage !== null ? (+a.percentage).toFixed(1) + '%' : 'N/A') %></td>
+      <td><%= a.category === 'academic' ? capScore(a.academic_score) + ' pts' + (a.percentage !== null ? ' / ' + (+a.percentage).toFixed(1) + '%' : '') : (a.percentage !== null ? (+a.percentage).toFixed(1) + '%' : 'N/A') %></td>
       <td><span class="badge status-<%= a.status %>"><%= a.status %></span></td>
       <td><a href="/admin/applications/<%= a.id %>" class="btn btn-secondary btn-sm">View details</a></td></tr>
   <% }) %>

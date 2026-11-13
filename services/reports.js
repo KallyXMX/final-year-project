@@ -3,6 +3,7 @@ const db = require('../models/db');
 const PDFDocument = require('pdfkit');
 const { createObjectCsvStringifier } = require('csv-writer');
 const { vacancyState } = require('../utils/vacancy');
+const { capScore } = require('../utils/qualifications');
 const { fmtDateTime } = require('../utils/time');
 
 // Requirement 4.7: applicant reports, shortlisted candidate reports, examination results and
@@ -80,16 +81,19 @@ const REPORTS = {
     rows: (vacancyId) => {
       const f = vacancyFilter(vacancyId);
       const raw = db.prepare(`
-        SELECT a.id, a.vacancy_id, u.name, v.title AS vacancy, v.category, a.academic_score,
+        SELECT a.id, a.vacancy_id, u.name, v.title AS vacancy, v.category, v.academic_exam_enabled, a.academic_score,
                a.exam_completed, er.percentage, er.passed, a.interview_score, a.status
         FROM applications a JOIN users u ON u.id = a.user_id JOIN vacancies v ON v.id = a.vacancy_id
         LEFT JOIN exam_results er ON er.user_id = a.user_id AND er.vacancy_id = a.vacancy_id
         WHERE a.shortlisted = 1 ${f.sql}`).all(...f.params);
-      const eligible = raw.filter((r) => r.category === 'academic' || r.exam_completed);
-      const metric = (r) => (r.category === 'academic' ? r.academic_score || 0 : r.percentage || 0);
+      // Academic candidates are listed from shortlisting; when HR enabled the exam for the vacancy they are listed once they have sat it.
+      const usesExam = (r) => r.category !== 'academic' || Number(r.academic_exam_enabled) === 1;
+      const eligible = raw.filter((r) => (r.category === 'academic' ? !usesExam(r) || r.exam_completed : r.exam_completed));
+      const metric = (r) => (r.category === 'academic' ? capScore(r.academic_score) : r.percentage || 0);
       eligible.sort((x, y) =>
         x.vacancy_id - y.vacancy_id ||
         metric(y) - metric(x) ||
+        (r1(y.percentage) || 0) - (r1(x.percentage) || 0) ||
         (y.interview_score ?? -1) - (x.interview_score ?? -1));
       let lastVacancy = null, rank = 0;
       return eligible.map((r) => {
@@ -100,9 +104,9 @@ const REPORTS = {
           name: r.name,
           vacancy: r.vacancy,
           category: r.category,
-          academic: r.category === 'academic' ? r.academic_score || 0 : '',
-          exam: r.category === 'academic' ? '' : r1(r.percentage),
-          result: r.category === 'academic' ? '' : (r.passed ? 'Passed' : 'Failed'),
+          academic: r.category === 'academic' ? capScore(r.academic_score) : '',
+          exam: usesExam(r) ? r1(r.percentage) : '',
+          result: usesExam(r) ? (r.passed ? 'Passed' : 'Failed') : '',
           interview: r.interview_score ?? '',
           status: r.status
         };

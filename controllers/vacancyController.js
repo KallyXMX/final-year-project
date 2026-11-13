@@ -8,9 +8,10 @@ const questionsSvc = require('../services/questions');
 const usersSvc = require('../services/users');
 const { logAction } = require('../services/audit');
 const { notify, listForUser } = require('../services/notifications');
-const { vacancyState, examState } = require('../utils/vacancy');
+const { vacancyState, examState, hasExam } = require('../utils/vacancy');
 const { endOfLocalDay, todayLocalYmd } = require('../utils/time');
-const { academicBreakdown, splitLines } = require('../utils/qualifications');
+const { academicBreakdown, schemeOf, splitLines } = require('../utils/qualifications');
+const { parsePoints, parseSwitches, POINT_FIELDS } = require('../utils/vacancySettings');
 const { redirectWith, toInt } = require('../utils/http');
 const { STATUS, QUALIFICATIONS, CATEGORY } = require('../utils/constants');
 const { eligibility } = require('../services/exam');
@@ -36,8 +37,18 @@ const getAllVacancies = (req, res) => {
   res.render('vacancies', { vacancies, myApps });
 };
 
+// Form defaults: the original points scheme, both exam sections on, academic exam off.
+const defaultSettings = () => ({
+  ...Object.fromEntries(POINT_FIELDS.map((f) => [f.key, f.def])),
+  aptitude_enabled: 1, literacy_enabled: 1, academic_exam_enabled: 0
+});
+
+const settingsText = (v) =>
+  `points PhD ${v.pts_phd}, Master ${v.pts_master}, Bachelor ${v.pts_bachelor}, per year ${v.pts_per_year}, per publication ${v.pts_per_publication}, per seminar ${v.pts_per_seminar}; ` +
+  `academic exam ${v.academic_exam_enabled ? 'ON' : 'off'}; Aptitude ${v.aptitude_enabled ? 'on' : 'OFF'}; Computer Literacy ${v.literacy_enabled ? 'on' : 'OFF'}`;
+
 const renderCreateForm = (req, res) =>
-  res.render('admin/create-vacancy', { error: null, values: { opens_at: todayLocalYmd(), min_qualification: 'Bachelor', min_experience_years: 0, category: 'non-academic' } });
+  res.render('admin/create-vacancy', { error: null, values: { opens_at: todayLocalYmd(), min_qualification: 'Bachelor', min_experience_years: 0, category: 'non-academic', ...defaultSettings() } });
 
 const createVacancy = (req, res) => {
   const b = req.body;
@@ -52,6 +63,11 @@ const createVacancy = (req, res) => {
     opens_at: String(b.opens_at || '').trim(),
     deadline: String(b.deadline || '').trim()
   };
+  // The form always sends settings_form=1. A request without it (an old client) simply gets the default scheme.
+  const fromForm = b.settings_form === '1';
+  const pts = fromForm ? parsePoints(b) : { values: defaultSettings(), error: null };
+  const sw = fromForm ? parseSwitches(b, values.category) : { values: { aptitude_enabled: 1, literacy_enabled: 1, academic_exam_enabled: 0 }, error: null };
+  Object.assign(values, pts.values, sw.values);
   const fail = (msg) => res.status(400).render('admin/create-vacancy', { error: msg, values });
 
   if (!values.title || !values.department) return fail('Title and department are required.');
@@ -61,8 +77,11 @@ const createVacancy = (req, res) => {
   if (values.deadline < values.opens_at) return fail('The deadline cannot be before the opening date.');
   if (endOfLocalDay(values.deadline) < new Date()) return fail('The deadline must be today or a future date.');
 
+  if (pts.error) return fail(pts.error);
+  if (sw.error) return fail(sw.error);
+
   const info = vacanciesSvc.create(values);
-  logAction(req.session.userId, 'VACANCY_CREATED', `Created new ${values.category} vacancy: ${values.title} (ID ${info.lastInsertRowid}).`, req);
+  logAction(req.session.userId, 'VACANCY_CREATED', `Created new ${values.category} vacancy: ${values.title} (ID ${info.lastInsertRowid}); ${settingsText(values)}.`, req);
   return redirectWith(res, '/vacancies', 'Vacancy published. Applications open automatically on the opening date and close after the deadline.');
 };
 
@@ -155,7 +174,7 @@ const applyToVacancy = (req, res) => {
   const publications = academic ? splitLines(values.publications_text).length : 0;
   const seminars = academic ? splitLines(values.seminars_text).length : 0;
   const score = academic
-    ? academicBreakdown({ highest_qualification: values.highest_qualification, experience_years: values.experience_years, journal_publications_count: publications, seminars_attended: seminars }).total
+    ? academicBreakdown({ highest_qualification: values.highest_qualification, experience_years: values.experience_years, journal_publications_count: publications, seminars_attended: seminars }, schemeOf(vacancy)).total
     : 0;
 
   try {
@@ -183,8 +202,9 @@ const getMyApplications = (req, res) => {
 
   const applications = rows.map((a) => {
     const vac = { ...a, id: a.vid };
-    const elig = a.category === CATEGORY.NON_ACADEMIC && a.status === STATUS.SHORTLISTED ? eligibility(a, vac) : { ok: false };
-    return { ...a, vacancyState: vacancyState(vac), examState: examState(vac), canTakeExam: elig.ok, examNote: elig.reason };
+    const usesExam = hasExam(a);
+    const elig = usesExam && a.status === STATUS.SHORTLISTED ? eligibility(a, vac) : { ok: false };
+    return { ...a, usesExam, vacancyState: vacancyState(vac), examState: examState(vac), canTakeExam: elig.ok, examNote: elig.reason };
   });
   res.render('my-applications', { applications });
 };
@@ -197,7 +217,7 @@ const viewVacancyApplications = (req, res) => {
   const applications = applicationsSvc.listForVacancy(vacancy.id);
   const pending = applications.filter((a) => a.status === STATUS.PENDING).length;
   const questionCount = questionsSvc.countForVacancy(vacancy.id);
-  res.render('admin/vacancy-applicants', { applications, vacancy: withState(vacancy), pending, questionCount });
+  res.render('admin/vacancy-applicants', { applications, vacancy: { ...withState(vacancy), usesExam: hasExam(vacancy) }, pending, questionCount });
 };
 
 // Final HR decision after the interview stage (Requirement 2.8)
@@ -232,7 +252,51 @@ const getDashboard = (req, res) => {
   return res.render('dashboard', { user: userData, analytics: null, myApplications, notifications });
 };
 
+// ---------------------------------------------------------------- HR: points scheme + exam switches
+
+const renderVacancySettings = (req, res) => {
+  const vacancy = vacanciesSvc.findById(req.params.id);
+  if (!vacancy) return res.status(404).render('404');
+  res.render('admin/vacancy-settings', { vacancy, error: null, values: { ...vacancy }, locked: questionsSvc.examStarted(vacancy.id) });
+};
+
+const saveVacancySettings = (req, res) => {
+  const vacancy = vacanciesSvc.findById(req.params.id);
+  if (!vacancy) return res.status(404).render('404');
+  const locked = questionsSvc.examStarted(vacancy.id);
+  const pts = parsePoints(req.body);
+  // Once applicants started the exam the switches are locked: keep what is stored and ignore posted checkboxes.
+  const sw = locked ? { values: schemeFields(vacancy), error: null } : parseSwitches(req.body, vacancy.category);
+  const values = { ...vacancy, ...pts.values, ...(locked ? { academic_exam_enabled: sw.values.academic_exam_enabled, aptitude_enabled: sw.values.aptitude_enabled, literacy_enabled: sw.values.literacy_enabled } : sw.values) };
+  const fail = (msg) => res.status(400).render('admin/vacancy-settings', { vacancy, error: msg, values, locked });
+  if (pts.error) return fail(pts.error);
+  if (sw.error) return fail(sw.error);
+
+  const before = settingsText(schemeFields(vacancy));
+  const scheme = schemeOf(values);
+  let rescored = 0;
+  vacanciesSvc.saveSettings(vacancy.id, values, vacancy.category === 'academic'
+    ? () => { rescored = applicationsSvc.rescoreVacancy(vacancy.id, (a) => academicBreakdown(a, scheme).total); }
+    : null);
+  const after = settingsText(values);
+  if (before !== after) {
+    logAction(req.session.userId, 'VACANCY_SETTINGS_CHANGED',
+      `Changed settings of vacancy ID ${vacancy.id} (${vacancy.title}). Before: ${before}. After: ${after}.${rescored ? ` ${rescored} academic score(s) recalculated.` : ''}`, req);
+  }
+  return redirectWith(res, `/vacancies/${vacancy.id}/applications`, `Vacancy settings saved.${rescored ? ` ${rescored} academic score(s) recalculated.` : ''}`);
+};
+
+// Normalise a DB row (old rows may hold NULL) into the flat values settingsText prints.
+const schemeFields = (v) => {
+  const s = schemeOf(v);
+  return { pts_phd: s.phd, pts_master: s.master, pts_bachelor: s.bachelor, pts_per_year: s.perYearExperience,
+    pts_per_publication: s.perPublication, pts_per_seminar: s.perSeminar,
+    academic_exam_enabled: Number(v.academic_exam_enabled) === 1 ? 1 : 0,
+    aptitude_enabled: v.aptitude_enabled === 0 ? 0 : 1, literacy_enabled: v.literacy_enabled === 0 ? 0 : 1 };
+};
+
 module.exports = {
+  renderVacancySettings, saveVacancySettings,
   getAllVacancies, renderCreateForm, createVacancy, closeVacancy, reopenVacancy,
   renderApplyForm, applyToVacancy, getMyApplications, viewVacancyApplications,
   updateApplicationStatus, getDashboard
