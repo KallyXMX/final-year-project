@@ -10,8 +10,8 @@ const { logAction } = require('../services/audit');
 const { notify, listForUser } = require('../services/notifications');
 const { vacancyState, examState, hasExam } = require('../utils/vacancy');
 const { endOfLocalDay, todayLocalYmd } = require('../utils/time');
-const { academicBreakdown, schemeOf, splitLines } = require('../utils/qualifications');
-const { parsePoints, parseSwitches, POINT_FIELDS } = require('../utils/vacancySettings');
+const { academicBreakdown, schemeOf, splitLines, capsOf, combinedOf } = require('../utils/qualifications');
+const { parsePoints, parseSwitches, parseMaxima, parseSlots, POINT_FIELDS, MAX_FIELDS, NO_MAXIMA } = require('../utils/vacancySettings');
 const { redirectWith, toInt } = require('../utils/http');
 const { STATUS, QUALIFICATIONS, CATEGORY } = require('../utils/constants');
 const { eligibility } = require('../services/exam');
@@ -40,12 +40,17 @@ const getAllVacancies = (req, res) => {
 // Form defaults: the original points scheme, both exam sections on, academic exam off.
 const defaultSettings = () => ({
   ...Object.fromEntries(POINT_FIELDS.map((f) => [f.key, f.def])),
+  ...Object.fromEntries(MAX_FIELDS.map((f) => [f.key, f.def])), slots: '',
   aptitude_enabled: 1, literacy_enabled: 1, academic_exam_enabled: 0
 });
 
-const settingsText = (v) =>
-  `points PhD ${v.pts_phd}, Master ${v.pts_master}, Bachelor ${v.pts_bachelor}, per year ${v.pts_per_year}, per publication ${v.pts_per_publication}, per seminar ${v.pts_per_seminar}; ` +
-  `academic exam ${v.academic_exam_enabled ? 'ON' : 'off'}; Aptitude ${v.aptitude_enabled ? 'on' : 'OFF'}; Computer Literacy ${v.literacy_enabled ? 'on' : 'OFF'}`;
+const settingsText = (v) => {
+  const caps = capsOf(v);
+  return `points PhD ${v.pts_phd}, Master ${v.pts_master}, Bachelor ${v.pts_bachelor}, per year ${v.pts_per_year}, per publication ${v.pts_per_publication}, per seminar ${v.pts_per_seminar}; ` +
+    (caps ? `maxima Qualification ${caps.qualification}, Experience ${caps.experience}, Publications ${caps.publications}, Personal data ${caps.personalData}, Interview ${caps.interview}` : 'maxima none (legacy scoring)') +
+    `; positions ${v.slots ? v.slots : 'not set'}; ` +
+    `academic exam ${v.academic_exam_enabled ? 'ON' : 'off'}; Aptitude ${v.aptitude_enabled ? 'on' : 'OFF'}; Computer Literacy ${v.literacy_enabled ? 'on' : 'OFF'}`;
+};
 
 const renderCreateForm = (req, res) =>
   res.render('admin/create-vacancy', { error: null, values: { opens_at: todayLocalYmd(), min_qualification: 'Bachelor', min_experience_years: 0, category: 'non-academic', ...defaultSettings() } });
@@ -65,9 +70,12 @@ const createVacancy = (req, res) => {
   };
   // The form always sends settings_form=1. A request without it (an old client) simply gets the default scheme.
   const fromForm = b.settings_form === '1';
-  const pts = fromForm ? parsePoints(b) : { values: defaultSettings(), error: null };
+  const pts = fromForm ? parsePoints(b) : { values: Object.fromEntries(POINT_FIELDS.map((f) => [f.key, f.def])), error: null };
   const sw = fromForm ? parseSwitches(b, values.category) : { values: { aptitude_enabled: 1, literacy_enabled: 1, academic_exam_enabled: 0 }, error: null };
-  Object.assign(values, pts.values, sw.values);
+  // Category maxima apply to academic vacancies only; a request without the form marker keeps the legacy scoring (all NULL).
+  const mx = fromForm && values.category === 'academic' ? parseMaxima(b) : { values: NO_MAXIMA(), error: null };
+  const sl = fromForm ? parseSlots(b) : { value: null, error: null };
+  Object.assign(values, pts.values, sw.values, mx.values, { slots: sl.value });
   const fail = (msg) => res.status(400).render('admin/create-vacancy', { error: msg, values });
 
   if (!values.title || !values.department) return fail('Title and department are required.');
@@ -79,6 +87,8 @@ const createVacancy = (req, res) => {
 
   if (pts.error) return fail(pts.error);
   if (sw.error) return fail(sw.error);
+  if (mx.error) return fail(mx.error);
+  if (sl.error) return fail(sl.error);
 
   const info = vacanciesSvc.create(values);
   logAction(req.session.userId, 'VACANCY_CREATED', `Created new ${values.category} vacancy: ${values.title} (ID ${info.lastInsertRowid}); ${settingsText(values)}.`, req);
@@ -214,10 +224,11 @@ const getMyApplications = (req, res) => {
 const viewVacancyApplications = (req, res) => {
   const vacancy = vacanciesSvc.findById(req.params.id);
   if (!vacancy) return res.status(404).render('404');
-  const applications = applicationsSvc.listForVacancy(vacancy.id);
+  const caps = capsOf(vacancy);
+  const applications = applicationsSvc.listForVacancy(vacancy.id).map((a) => ({ ...a, combined: caps ? combinedOf(a, vacancy) : null }));
   const pending = applications.filter((a) => a.status === STATUS.PENDING).length;
   const questionCount = questionsSvc.countForVacancy(vacancy.id);
-  res.render('admin/vacancy-applicants', { applications, vacancy: { ...withState(vacancy), usesExam: hasExam(vacancy) }, pending, questionCount });
+  res.render('admin/vacancy-applicants', { applications, caps, vacancy: { ...withState(vacancy), usesExam: hasExam(vacancy) }, pending, questionCount });
 };
 
 // Final HR decision after the interview stage (Requirement 2.8)
@@ -264,18 +275,32 @@ const saveVacancySettings = (req, res) => {
   const vacancy = vacanciesSvc.findById(req.params.id);
   if (!vacancy) return res.status(404).render('404');
   const locked = questionsSvc.examStarted(vacancy.id);
+  const academic = vacancy.category === 'academic';
   const pts = parsePoints(req.body);
+  // Category maxima exist for academic vacancies only (non-academic ones keep NULL); all five blank = legacy scoring.
+  const mx = academic ? parseMaxima(req.body) : { values: NO_MAXIMA(), error: null };
+  const sl = parseSlots(req.body);
   // Once applicants started the exam the switches are locked: keep what is stored and ignore posted checkboxes.
   const sw = locked ? { values: schemeFields(vacancy), error: null } : parseSwitches(req.body, vacancy.category);
-  const values = { ...vacancy, ...pts.values, ...(locked ? { academic_exam_enabled: sw.values.academic_exam_enabled, aptitude_enabled: sw.values.aptitude_enabled, literacy_enabled: sw.values.literacy_enabled } : sw.values) };
+  const values = { ...vacancy, ...pts.values, ...mx.values, slots: sl.value, ...(locked ? { academic_exam_enabled: sw.values.academic_exam_enabled, aptitude_enabled: sw.values.aptitude_enabled, literacy_enabled: sw.values.literacy_enabled } : sw.values) };
   const fail = (msg) => res.status(400).render('admin/vacancy-settings', { vacancy, error: msg, values, locked });
   if (pts.error) return fail(pts.error);
+  if (mx.error) return fail(mx.error);
+  if (sl.error) return fail(sl.error);
   if (sw.error) return fail(sw.error);
+
+  // Never set a maximum below a personal data / interview score that has already been recorded.
+  const caps = capsOf(values);
+  if (caps) {
+    const top = applicationsSvc.highestRecordedScores(vacancy.id);
+    if (top.personal !== null && top.personal > caps.personalData) return fail(`A personal data score of ${top.personal} is already recorded, so the personal data maximum cannot be below it.`);
+    if (top.interview !== null && top.interview > caps.interview) return fail(`An interview score of ${top.interview} is already recorded, so the interview maximum cannot be below it.`);
+  }
 
   const before = settingsText(schemeFields(vacancy));
   const scheme = schemeOf(values);
   let rescored = 0;
-  vacanciesSvc.saveSettings(vacancy.id, values, vacancy.category === 'academic'
+  vacanciesSvc.saveSettings(vacancy.id, values, academic
     ? () => { rescored = applicationsSvc.rescoreVacancy(vacancy.id, (a) => academicBreakdown(a, scheme).total); }
     : null);
   const after = settingsText(values);
@@ -289,8 +314,11 @@ const saveVacancySettings = (req, res) => {
 // Normalise a DB row (old rows may hold NULL) into the flat values settingsText prints.
 const schemeFields = (v) => {
   const s = schemeOf(v);
+  const c = s.caps;
   return { pts_phd: s.phd, pts_master: s.master, pts_bachelor: s.bachelor, pts_per_year: s.perYearExperience,
     pts_per_publication: s.perPublication, pts_per_seminar: s.perSeminar,
+    max_qualification: c ? c.qualification : null, max_experience: c ? c.experience : null, max_publications: c ? c.publications : null,
+    max_personal_data: c ? c.personalData : null, max_interview: c ? c.interview : null, slots: v.slots || null,
     academic_exam_enabled: Number(v.academic_exam_enabled) === 1 ? 1 : 0,
     aptitude_enabled: v.aptitude_enabled === 0 ? 0 : 1, literacy_enabled: v.literacy_enabled === 0 ? 0 : 1 };
 };

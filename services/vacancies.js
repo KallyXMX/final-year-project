@@ -21,15 +21,18 @@ const listWithExam = () =>
 
 const create = (v) => db.prepare(`
   INSERT INTO vacancies (title, department, category, description, requirements, min_qualification, min_experience_years, opens_at, deadline,
-    pts_phd, pts_master, pts_bachelor, pts_per_year, pts_per_publication, pts_per_seminar, academic_exam_enabled, aptitude_enabled, literacy_enabled)
+    pts_phd, pts_master, pts_bachelor, pts_per_year, pts_per_publication, pts_per_seminar, academic_exam_enabled, aptitude_enabled, literacy_enabled,
+    max_qualification, max_experience, max_publications, max_personal_data, max_interview, slots)
   VALUES (@title, @department, @category, @description, @requirements, @min_qualification, @min_experience_years, @opens_at, @deadline,
-    @pts_phd, @pts_master, @pts_bachelor, @pts_per_year, @pts_per_publication, @pts_per_seminar, @academic_exam_enabled, @aptitude_enabled, @literacy_enabled)`).run(v);
+    @pts_phd, @pts_master, @pts_bachelor, @pts_per_year, @pts_per_publication, @pts_per_seminar, @academic_exam_enabled, @aptitude_enabled, @literacy_enabled,
+    @max_qualification, @max_experience, @max_publications, @max_personal_data, @max_interview, @slots)`).run(v);
 
-// Saves the points scheme and exam switches; recalculates every applicant's academic score from the new points (capped at 100).
+// Saves the points scheme, category maxima, number of positions and exam switches; recalculates every applicant's academic score from the new points (capped at 100).
 const saveSettings = (id, s, rescore) => db.transaction(() => {
   db.prepare(`UPDATE vacancies SET pts_phd = @pts_phd, pts_master = @pts_master, pts_bachelor = @pts_bachelor, pts_per_year = @pts_per_year,
     pts_per_publication = @pts_per_publication, pts_per_seminar = @pts_per_seminar, academic_exam_enabled = @academic_exam_enabled,
-    aptitude_enabled = @aptitude_enabled, literacy_enabled = @literacy_enabled WHERE id = @id`).run({ ...s, id });
+    aptitude_enabled = @aptitude_enabled, literacy_enabled = @literacy_enabled, max_qualification = @max_qualification, max_experience = @max_experience,
+    max_publications = @max_publications, max_personal_data = @max_personal_data, max_interview = @max_interview, slots = @slots WHERE id = @id`).run({ ...s, id });
   if (rescore) rescore();
 })();
 

@@ -1,5 +1,5 @@
-<%# Points scheme + exam switches. Expects: values, and optionally lockExam (true once applicants started the exam). %>
-<% const locked = typeof lockExam !== 'undefined' && lockExam; %>
+<%# Points scheme, category maxima, positions + exam switches. Expects: values; optionally lockExam (true once applicants started the exam) and showMaxima (false for non-academic vacancies). %>
+<% const locked = typeof lockExam !== 'undefined' && lockExam; const withMaxima = typeof showMaxima === 'undefined' || showMaxima; %>
 <input type="hidden" name="settings_form" value="1">
 <fieldset><legend>Academic points scheme (score is capped at 100)</legend>
   <div class="form-row">
@@ -13,6 +13,22 @@
     <div class="form-group"><label for="pts_per_seminar">Per seminar</label><input type="number" id="pts_per_seminar" name="pts_per_seminar" min="0" max="100" step="1" value="<%= values.pts_per_seminar ?? 2 %>" required></div>
   </div>
   <p class="hint">Whole numbers from 0 to 100. Used for academic vacancies; applicants see this scheme on the vacancy.</p>
+</fieldset>
+<% if (withMaxima) { %>
+<fieldset><legend>Recruitment score: maximum points per category (academic vacancies)</legend>
+  <div class="form-row">
+    <div class="form-group"><label for="max_personal_data">Personal data</label><input type="number" id="max_personal_data" name="max_personal_data" min="0" max="100" step="1" value="<%= values.max_personal_data ?? '' %>"></div>
+    <div class="form-group"><label for="max_qualification">Educational qualification</label><input type="number" id="max_qualification" name="max_qualification" min="0" max="100" step="1" value="<%= values.max_qualification ?? '' %>"></div>
+    <div class="form-group"><label for="max_experience">Relevant experience</label><input type="number" id="max_experience" name="max_experience" min="0" max="100" step="1" value="<%= values.max_experience ?? '' %>"></div>
+    <div class="form-group"><label for="max_publications">Publications</label><input type="number" id="max_publications" name="max_publications" min="0" max="100" step="1" value="<%= values.max_publications ?? '' %>"></div>
+    <div class="form-group"><label for="max_interview">Physical interview</label><input type="number" id="max_interview" name="max_interview" min="0" max="100" step="1" value="<%= values.max_interview ?? '' %>"></div>
+  </div>
+  <p class="hint">Whole numbers; the five must add up to exactly 100. The qualification, experience and publications parts of the academic score are each capped at their maximum (publications and seminars share one cap); the personal data and interview scores are entered by HR. Leave all five empty to keep the old scoring (one academic score capped at 100, no combined total).</p>
+</fieldset>
+<% } %>
+<fieldset><legend>Number of positions (optional)</legend>
+  <div class="form-group"><label for="slots">Positions to fill</label><input type="number" id="slots" name="slots" min="1" max="1000" step="1" value="<%= values.slots ?? '' %>" style="max-width:160px;"></div>
+  <p class="hint">Optional. The merit list marks that many top-ranked applicants "Within slots". It is only a marker; HR still records every decision.</p>
 </fieldset>
 <fieldset><legend>Online exam</legend>
   <% if (locked) { %><p class="hint">Applicants have already started the exam, so these switches are locked.</p><% } %>

@@ -58,7 +58,11 @@
         <tr><td>Teaching experience <small>(<%= scheme.perYearExperience %> pts / year)</small></td><td><%= application.experience_years || 0 %> years</td><td><%= breakdown.expPoints %></td></tr>
         <tr><td>Journal publications <small>(<%= scheme.perPublication %> pts each)</small></td><td><%= application.journal_publications_count %></td><td><%= breakdown.pubPoints %></td></tr>
         <tr><td>Seminars &amp; workshops <small>(<%= scheme.perSeminar %> pts each)</small></td><td><%= application.seminars_attended %></td><td><%= breakdown.semPoints %></td></tr>
+        <% if (caps) { %>
+          <tr><td colspan="2" style="text-align:right;"><strong>Academic part</strong> <small class="text-muted">(qualification + experience + publications, each capped at its maximum)</small></td><td><strong><%= combined.academic %> / <%= caps.qualification + caps.experience + caps.publications %></strong></td></tr>
+        <% } else { %>
         <tr><td colspan="2" style="text-align:right;"><strong>Total academic score</strong></td><td><strong><%= capScore(application.academic_score) %> points</strong><% if (breakdown.raw > 100) { %><br><small class="text-muted">(<%= breakdown.raw %> before the cap of 100)</small><% } %></td></tr>
+        <% } %>
       </tbody>
     </table>
     <form action="/admin/applications/<%= application.id %>/academic-score" method="POST" class="no-print" style="margin-top:16px;">
@@ -89,16 +93,37 @@
 <% } %>
 
 <div class="card">
+  <% if (combined) { %>
+  <div class="card">
+    <h3 style="margin-bottom:12px;">Recruitment score <span class="text-muted" style="font-size:12px;font-weight:400;">(out of 100)</span></h3>
+    <table>
+      <thead><tr><th>Component</th><th>Maximum</th><th>Score</th></tr></thead>
+      <tbody>
+        <tr><td>Personal data</td><td><%= caps.personalData %></td><td><%= combined.personal !== null ? combined.personal : 'Not recorded' %></td></tr>
+        <tr><td>Educational qualification <small>(degree points <%= breakdown.degreePoints %>, capped)</small></td><td><%= caps.qualification %></td><td><%= combined.parts.qualification %></td></tr>
+        <tr><td>Relevant experience <small>(<%= breakdown.expPoints %> points, capped)</small></td><td><%= caps.experience %></td><td><%= combined.parts.experience %></td></tr>
+        <tr><td>Publications and seminars <small>(<%= breakdown.pubPoints + breakdown.semPoints %> points, capped)</small></td><td><%= caps.publications %></td><td><%= combined.parts.publications %></td></tr>
+        <tr><td>Physical interview</td><td><%= caps.interview %></td><td><%= combined.interview !== null ? combined.interview : 'Not recorded' %></td></tr>
+        <tr><td style="text-align:right;"><strong>Combined total</strong></td><td><strong><%= caps.personalData + caps.qualification + caps.experience + caps.publications + caps.interview %></strong></td>
+          <td><strong><%= combined.total %></strong><% if (!combined.complete) { %><br><small class="text-muted">(personal data and interview scores still missing count as 0)</small><% } %></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <% } %>
   <h3 style="margin-bottom:12px;">Interview evaluation <span class="text-muted" style="font-size:12px;font-weight:400;">(optional &mdash; the interview itself takes place outside the system)</span></h3>
   <% if (application.interview_score !== null) { %>
-    <p><strong>Score:</strong> <%= application.interview_score %>/100<br><strong>Panel remarks:</strong> <%= application.interviewer_remarks || 'None' %></p>
+    <p><strong>Interview score:</strong> <%= application.interview_score %>/<%= caps ? caps.interview : 100 %><% if (caps) { %><br><strong>Personal data score:</strong> <%= application.personal_data_score !== null ? application.personal_data_score + '/' + caps.personalData : 'Not recorded' %><% } %><br><strong>Panel remarks:</strong> <%= application.interviewer_remarks || 'None' %></p>
   <% } else { %><p class="text-muted">No interview result recorded yet.</p><% } %>
   <% if (application.shortlisted && ['Shortlisted','Recommended'].includes(application.status)) { %>
     <form action="/admin/applications/<%= application.id %>/interview" method="POST" class="no-print" style="margin-top:14px;background:#f7fafc;padding:16px;border-radius:8px;">
       <%- include('../partials/csrf') %>
       <div class="form-row">
-        <div class="form-group"><label for="interview_score">Interview score (0-100)</label>
-          <input type="number" id="interview_score" name="interview_score" min="0" max="100" value="<%= application.interview_score ?? '' %>" required></div>
+        <% if (caps) { %>
+        <div class="form-group"><label for="personal_data_score">Personal data score (0-<%= caps.personalData %>)</label>
+          <input type="number" id="personal_data_score" name="personal_data_score" min="0" max="<%= caps.personalData %>" step="0.01" value="<%= application.personal_data_score ?? '' %>" required></div>
+        <% } %>
+        <div class="form-group"><label for="interview_score">Interview score (0-<%= caps ? caps.interview : 100 %>)</label>
+          <input type="number" id="interview_score" name="interview_score" min="0" max="<%= caps ? caps.interview : 100 %>" step="0.01" value="<%= application.interview_score ?? '' %>" required></div>
         <div class="form-group"><label for="final_decision">Panel decision</label>
           <select id="final_decision" name="final_decision">
             <option value="">Keep current status</option><option value="Recommended">Recommend</option><option value="Rejected">Reject</option></select></div>

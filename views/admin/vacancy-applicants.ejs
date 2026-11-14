@@ -36,7 +36,7 @@
 <% } else { %>
   <div class="table-wrap"><table>
     <thead><tr><th>Applicant</th><th>Qualification</th><th>Exp.</th>
-      <% if (!nonAcad) { %><th>Academic pts</th><% } %><% if (usesExam) { %><th>Exam</th><% } %><th>Interview</th><th>Status</th><th>Decision</th></tr></thead>
+      <% if (!nonAcad) { %><th>Academic pts</th><% } %><% if (usesExam) { %><th>Exam</th><% } %><th>Interview</th><% if (caps) { %><th>Personal data</th><th>Total /100</th><% } %><th>Status</th><th>Decision</th></tr></thead>
     <tbody>
     <% applications.forEach(a => { %>
       <tr>
@@ -47,6 +47,7 @@
         <% if (!nonAcad) { %><td><%= capScore(a.academic_score) %></td><% } %>
         <% if (usesExam) { %><td><%= a.percentage !== null ? (+a.percentage).toFixed(1) + '% (' + a.score + '/' + a.total_questions + ')' : 'Not taken' %></td><% } %>
         <td><%= a.interview_score !== null ? a.interview_score : '—' %></td>
+        <% if (caps && a.combined) { %><td><%= a.personal_data_score !== null ? a.personal_data_score : '—' %></td><td><strong><%= a.combined.total %></strong></td><% } %>
         <td><span class="badge status-<%= a.status %>"><%= a.status %></span></td>
         <td>
           <% if (!['Accepted'].includes(a.status)) { %>

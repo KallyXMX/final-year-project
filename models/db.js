@@ -179,6 +179,14 @@ const initSchema = () => {
   addColumn('vacancies', 'aptitude_enabled', 'INTEGER DEFAULT 1');
   addColumn('vacancies', 'literacy_enabled', 'INTEGER DEFAULT 1');
   db.prepare('UPDATE applications SET academic_score = 100 WHERE academic_score > 100').run(); // scores are capped at 100
+  // Combined recruitment score: category maxima (all five NULL = legacy scoring), optional number of positions.
+  addColumn('vacancies', 'max_qualification', 'INTEGER');
+  addColumn('vacancies', 'max_experience', 'INTEGER');
+  addColumn('vacancies', 'max_publications', 'INTEGER');
+  addColumn('vacancies', 'max_personal_data', 'INTEGER');
+  addColumn('vacancies', 'max_interview', 'INTEGER');
+  addColumn('vacancies', 'slots', 'INTEGER');
+  addColumn('applications', 'personal_data_score', 'REAL');
 
   addColumn('applications', 'status_note', 'TEXT');
   addColumn('applications', 'shortlisted', 'INTEGER DEFAULT 0');

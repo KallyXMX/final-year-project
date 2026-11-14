@@ -10,7 +10,8 @@ const { logAction } = require('../services/audit');
 const { notify } = require('../services/notifications');
 const { shortlistVacancy } = require('../services/shortlisting');
 const { vacancyState } = require('../utils/vacancy');
-const { academicBreakdown, schemeOf, splitLines } = require('../utils/qualifications');
+const { academicBreakdown, schemeOf, splitLines, capsOf, combinedOf } = require('../utils/qualifications');
+const { parseScore } = require('../utils/vacancySettings');
 const examSvc = require('../services/exam');
 const { hasExam } = require('../utils/vacancy');
 const { localInputToIso, isoToLocalInput, fmtDateTime } = require('../utils/time');
@@ -39,7 +40,7 @@ const renderApplicationDetail = (req, res) => {
   const exam = applicationsSvc.findExamResult(application.user_id, application.vacancy_id);
   const sectionScores = exam && exam.section_scores ? JSON.parse(exam.section_scores) : [];
   res.render('admin/applicant-detail', {
-    application, breakdown, scheme, exam, sectionScores, usesExam: hasExam(application),
+    application, breakdown, scheme, caps: scheme.caps, combined: combinedOf(application, application), exam, sectionScores, usesExam: hasExam(application),
     lists: {
       qualifications: splitLines(application.qualifications_text),
       experience: splitLines(application.experience_text),
@@ -76,14 +77,27 @@ const recordInterviewResult = (req, res) => {
   if (!app.shortlisted || ![STATUS.SHORTLISTED, STATUS.RECOMMENDED].includes(app.status)) {
     return redirectWith(res, back, 'Interview results can only be recorded for shortlisted candidates.', 'error');
   }
-  const score = Number(req.body.interview_score);
-  if (!Number.isFinite(score) || score < 0 || score > 100) return redirectWith(res, back, 'Interview score must be between 0 and 100.', 'error');
+  // Vacancies with category maxima: personal data 0..max_personal_data and interview 0..max_interview (two decimals).
+  // Legacy vacancies: interview 0..100 and no personal data score.
+  const vacancy = vacanciesSvc.findById(app.vacancy_id);
+  const caps = capsOf(vacancy);
+  const iv = parseScore(req.body.interview_score, 'Interview score', caps ? caps.interview : 100);
+  if (iv.error) return redirectWith(res, back, iv.error, 'error');
+  let personal;
+  if (caps) {
+    const pd = parseScore(req.body.personal_data_score, 'Personal data score', caps.personalData);
+    if (pd.error) return redirectWith(res, back, pd.error, 'error');
+    personal = pd.value;
+  }
   const remarks = String(req.body.interviewer_remarks || '').trim().slice(0, 2000);
   const decision = req.body.final_decision;
   const status = decision === STATUS.RECOMMENDED || decision === STATUS.REJECTED ? decision : app.status;
 
-  applicationsSvc.saveInterview(app.id, Math.round(score), remarks, status);
-  logAction(req.session.userId, 'INTERVIEW_RECORDED', `Interview score ${Math.round(score)} recorded for application ID ${app.id}; status ${app.status} -> ${status}.`, req);
+  applicationsSvc.saveInterview(app.id, iv.value, remarks, status, personal);
+  const shown = (x) => (x === null || x === undefined ? 'none' : x);
+  logAction(req.session.userId, 'INTERVIEW_RECORDED',
+    `Interview score ${shown(app.interview_score)} -> ${iv.value}` +
+    `${caps ? `; personal data score ${shown(app.personal_data_score)} -> ${personal}` : ''} recorded for application ID ${app.id}; status ${app.status} -> ${status}.`, req);
   if (status !== app.status) {
     notify(app.user_id, status === STATUS.RECOMMENDED
       ? `You have been recommended for "${app.title}" following the interview.`

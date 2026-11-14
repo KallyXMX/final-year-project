@@ -4,6 +4,11 @@
   <strong>How academic points work:</strong>
   PhD <strong><%= sch.phd %></strong> &middot; Master's <strong><%= sch.master %></strong> &middot; Bachelor's <strong><%= sch.bachelor %></strong>
   &middot; <strong><%= sch.perYearExperience %></strong> per year of experience &middot; <strong><%= sch.perPublication %></strong> per publication
-  &middot; <strong><%= sch.perSeminar %></strong> per seminar. The total is capped at <strong>100</strong>.
+  &middot; <strong><%= sch.perSeminar %></strong> per seminar.
+  <% if (sch.caps) { %>
+    <br>The recruitment score is out of <strong>100</strong>: personal data <strong><%= sch.caps.personalData %></strong> &middot; educational qualification <strong><%= sch.caps.qualification %></strong>
+    &middot; relevant experience <strong><%= sch.caps.experience %></strong> &middot; publications and seminars <strong><%= sch.caps.publications %></strong>
+    &middot; physical interview <strong><%= sch.caps.interview %></strong>. Each part is capped at its maximum.
+  <% } else { %>The total is capped at <strong>100</strong>.<% } %>
   <% if (Number(job.academic_exam_enabled) === 1) { %><br>Shortlisted applicants will also sit an online exam.<% } %>
 </div>

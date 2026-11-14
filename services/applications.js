@@ -75,7 +75,8 @@ const search = ({ search: text, status, vacancy_id: vacancyId }) => {
 const findDetail = (id) => db.prepare(`
   SELECT a.*, u.name AS applicant_name, u.email AS applicant_email, v.title AS vacancy_title, v.department,
          v.category, v.min_qualification, v.min_experience_years, v.pass_mark, v.academic_exam_enabled,
-         v.pts_phd, v.pts_master, v.pts_bachelor, v.pts_per_year, v.pts_per_publication, v.pts_per_seminar
+         v.pts_phd, v.pts_master, v.pts_bachelor, v.pts_per_year, v.pts_per_publication, v.pts_per_seminar,
+         v.max_qualification, v.max_experience, v.max_publications, v.max_personal_data, v.max_interview
   FROM applications a
   JOIN users u ON a.user_id = u.id
   JOIN vacancies v ON a.vacancy_id = v.id
@@ -101,8 +102,18 @@ const rescoreVacancy = (vacancyId, scoreOf) => {
   return changed;
 };
 
-const saveInterview = (id, score, remarks, status) =>
-  db.prepare('UPDATE applications SET interview_score = ?, interviewer_remarks = ?, status = ? WHERE id = ?').run(score, remarks, status, id);
+// `personal` is the personal data score (combined-scoring vacancies); undefined leaves the stored value untouched.
+const saveInterview = (id, score, remarks, status, personal) => {
+  if (personal === undefined) {
+    return db.prepare('UPDATE applications SET interview_score = ?, interviewer_remarks = ?, status = ? WHERE id = ?').run(score, remarks, status, id);
+  }
+  return db.prepare('UPDATE applications SET interview_score = ?, personal_data_score = ?, interviewer_remarks = ?, status = ? WHERE id = ?')
+    .run(score, personal, remarks, status, id);
+};
+
+// Highest personal data / interview score already recorded for a vacancy (to refuse maxima below them).
+const highestRecordedScores = (vacancyId) => db.prepare(
+  'SELECT MAX(personal_data_score) AS personal, MAX(interview_score) AS interview FROM applications WHERE vacancy_id = ?').get(vacancyId);
 
 // Shortlisted applicants who still have to sit the exam (used to notify them when it is scheduled).
 const awaitingExam = (vacancyId) => db.prepare(
@@ -113,5 +124,5 @@ const findExamResult = (userId, vacancyId) =>
 
 module.exports = {
   findById, findByUserAndVacancy, findWithVacancyTitle, statusByVacancy, insert, listForUser, listForDashboard,
-  listForVacancy, search, findDetail, countPending, setStatus, updateAcademicFigures, rescoreVacancy, saveInterview, awaitingExam, findExamResult
+  listForVacancy, search, findDetail, countPending, setStatus, updateAcademicFigures, rescoreVacancy, saveInterview, highestRecordedScores, awaitingExam, findExamResult
 };
