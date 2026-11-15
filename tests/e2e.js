@@ -11,6 +11,7 @@ process.env.UPLOAD_DIR = path.join(tmp, 'uploads');
 const root = path.join(__dirname, '..');
 const bcrypt = require('bcrypt');
 const db = require(path.join(root, 'models/db'));
+const { cleanup } = require('./cleanup');
 const http = require('http');
 const app = require(path.join(root, 'app'));
 
@@ -222,7 +223,6 @@ class Client {
 
   const failed = results.filter((x) => !x.ok);
   console.log(`\n${results.length - failed.length}/${results.length} passed`);
-  server.close();
-  fs.rmSync(tmp, { recursive: true, force: true });
+  await cleanup({ server, db, tmp }); // never throws; a cleanup problem only prints a warning
   process.exit(failed.length ? 1 : 0);
 })().catch((e) => { console.error('E2E crashed', e); process.exit(1); });
