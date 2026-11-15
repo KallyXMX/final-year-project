@@ -105,7 +105,7 @@
         <tr><td>Publications and seminars <small>(<%= breakdown.pubPoints + breakdown.semPoints %> points, capped)</small></td><td><%= caps.publications %></td><td><%= combined.parts.publications %></td></tr>
         <tr><td>Physical interview</td><td><%= caps.interview %></td><td><%= combined.interview !== null ? combined.interview : 'Not recorded' %></td></tr>
         <tr><td style="text-align:right;"><strong>Combined total</strong></td><td><strong><%= caps.personalData + caps.qualification + caps.experience + caps.publications + caps.interview %></strong></td>
-          <td><strong><%= combined.total %></strong><% if (!combined.complete) { %><br><small class="text-muted">(personal data and interview scores still missing count as 0)</small><% } %></td></tr>
+          <td><strong><%= combined.total %><%= combined.complete ? '' : ' (incomplete)' %></strong><% if (!combined.complete) { %><br><small class="text-muted">(personal data and interview scores still missing count as 0; not ranked yet)</small><% } %></td></tr>
       </tbody>
     </table>
   </div>

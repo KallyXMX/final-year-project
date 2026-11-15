@@ -125,7 +125,7 @@ const renderExamSettings = (req, res) => {
   const vacancy = vacanciesSvc.findById(req.params.id);
   if (!vacancy) return res.status(404).render('404');
   res.render('admin/exam-settings', {
-    vacancy, error: null,
+    vacancy, error: null, warning: null,
     values: { ...vacancy, exam_start: isoToLocalInput(vacancy.exam_start), exam_end: isoToLocalInput(vacancy.exam_end) },
     counts: questionsSvc.countsBySection(vacancy.id),
     sections: examSvc.sectionConfig(vacancy).map((s) => s.name)
@@ -145,7 +145,7 @@ const saveExamSettings = (req, res) => {
   };
   const counts = questionsSvc.countsBySection(vacancy.id);
   const sections = examSvc.sectionConfig(vacancy).map((s) => s.name);
-  const fail = (msg) => res.status(400).render('admin/exam-settings', { vacancy, error: msg, values: v, counts, sections });
+  const fail = (msg) => res.status(400).render('admin/exam-settings', { vacancy, error: msg, warning: null, values: v, counts, sections });
 
   const startIso = localInputToIso(v.exam_start);
   const endIso = localInputToIso(v.exam_end);
@@ -159,8 +159,21 @@ const saveExamSettings = (req, res) => {
   if (v.questions_per_section < 1 || v.questions_per_section > 100) return fail('Questions per section must be between 1 and 100.');
   if (!sections.some((n) => counts[n])) return fail(`Add questions to the question bank (${sections.join(' / ')}) before scheduling the exam.`);
 
+  // A section that is switched on but has no questions is skipped when the paper is built. Warn HR before saving and let them
+  // choose: "Continue anyway" posts the same form again with confirm_empty=1, or go back and add questions.
+  // (At most one section can be empty here: if every section were empty the check above has already refused.)
+  const emptySections = sections.filter((n) => !counts[n]);
+  if (emptySections.length && b.confirm_empty !== '1') {
+    const name = emptySections[0];
+    return res.render('admin/exam-settings', {
+      vacancy, error: null, values: v, counts, sections,
+      warning: { section: name, text: `The ${name} section is switched on but has no questions in the question bank, so it will be skipped and applicants will be tested on the other section only. Add questions to ${name} first, or continue anyway.` }
+    });
+  }
+
   vacanciesSvc.saveExamSettings(vacancy.id, { ...v, exam_start: startIso, exam_end: endIso });
-  logAction(req.session.userId, 'EXAM_SCHEDULED', `Exam scheduled for vacancy ID ${vacancy.id}: ${fmtDateTime(startIso)} to ${fmtDateTime(endIso)}, pass mark ${v.pass_mark}%, sections: ${sections.join(' + ')}, minutes ${v.aptitude_minutes}/${v.literacy_minutes}, weights ${v.aptitude_weight}/${v.literacy_weight}, ${v.questions_per_section} questions per section.`, req);
+  logAction(req.session.userId, 'EXAM_SCHEDULED', `Exam scheduled for vacancy ID ${vacancy.id}: ${fmtDateTime(startIso)} to ${fmtDateTime(endIso)}, pass mark ${v.pass_mark}%, sections: ${sections.join(' + ')}, minutes ${v.aptitude_minutes}/${v.literacy_minutes}, weights ${v.aptitude_weight}/${v.literacy_weight}, ${v.questions_per_section} questions per section.` +
+    `${emptySections.length ? ` HR continued although the ${emptySections.join(', ')} section has no questions (it will be skipped).` : ''}`, req);
 
   // Tell shortlisted applicants who have not yet taken the exam.
   const targets = applicationsSvc.awaitingExam(vacancy.id);

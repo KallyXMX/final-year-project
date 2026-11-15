@@ -4,6 +4,7 @@
 //   Pending -> Shortlisted | Rejected      (automatic shortlisting, Requirement 4.3)
 //   Shortlisted -> Recommended | Rejected  (panel decision after the interview, Requirement 4.6)
 //   Shortlisted / Recommended -> Accepted  (final HR decision, Requirement 2.8)
+//   Accepted is final: the status route refuses to change an Accepted application (e.g. to Rejected).
 const STATUS = {
   PENDING: 'Pending',
   SHORTLISTED: 'Shortlisted',

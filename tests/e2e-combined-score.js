@@ -1,5 +1,6 @@
 // Tests for the combined recruitment score: category maxima, capped academic parts, personal data + interview scores
-// (two decimals), combined total, merit-list ranking and tie-breaks, positions ("slots"), and unchanged legacy / non-academic behaviour.
+// (two decimals), combined total, the "(incomplete)" total and "Not ranked yet" for candidates without both scores, merit-list ranking and
+// stable tie-breaks (exam %, interview, earlier application, application id), positions ("slots"), and unchanged legacy / non-academic behaviour.
 // Run with:  npm test   (uses a throw-away database)
 const path = require('path');
 const os = require('os');
@@ -189,7 +190,19 @@ class Client {
   db.prepare("UPDATE applications SET status='Shortlisted', shortlisted=1 WHERE id = ?").run(cyId);
   c = await csv(A);
   const cyRow = c.rows.find((x) => x.Name === 'cy');
-  check('Missing personal data / interview scores count as 0 in the total (cy: 35)', cyRow && cyRow['Total /100'] === '35' && cyRow['Personal data'] === '', JSON.stringify(cyRow));
+  check('Missing personal data / interview scores count as 0 but the total is labelled "35 (incomplete)" (cy)', cyRow && cyRow['Total /100'] === '35 (incomplete)' && cyRow['Personal data'] === '', JSON.stringify(cyRow));
+  check('Complete candidates have a plain total (no "incomplete")', c.rows.filter((x) => x.Name !== 'cy').every((x) => /^\d+(\.\d+)?$/.test(x['Total /100'])), c.rows.map((x) => x['Total /100']).join('|'));
+  check('Merit list: bob (100) is rank 1, ann (86) rank 2; cy has no ranking yet', c.rows.map((x) => `${x.Name}:${x.Rank}`).join() === 'bob:1,ann:2,cy:Not ranked yet', c.rows.map((x) => `${x.Name}:${x.Rank}`).join());
+  r = await admin.req('GET', `/admin/applications/${cyId}`);
+  check('Detail page: incomplete total is shown as "35 (incomplete)"', /Combined total 100 35 \(incomplete\)/.test(r.text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')), (r.text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').match(/Combined total.{0,40}/) || [''])[0]);
+  check('Detail page: a complete total has no "incomplete" label (bob)', !/incomplete/.test((await admin.req('GET', `/admin/applications/${bobId}`)).text.replace(/<[^>]+>/g, ' ')));
+  r = await admin.req('GET', `/vacancies/${A}/applications`);
+  check('Applicants list: cy shows "35 (incomplete)", ann and bob show plain totals', /<strong>35 \(incomplete\)<\/strong>/.test(r.text) && /<strong>86<\/strong>/.test(r.text) && /<strong>100<\/strong>/.test(r.text));
+  const { REPORTS } = require(path.join(root, 'services/reports'));
+  const meritRows = REPORTS.merit.rows(A);
+  check('Merit PDF and CSV are built from the same rows: ranks 1, 2 then "Not ranked yet", total "35 (incomplete)", no slot marker', meritRows.map((x) => x.rank).join() === '1,2,Not ranked yet' && meritRows[2].total === '35 (incomplete)' && meritRows[2].slots === '', JSON.stringify(meritRows.map((x) => [x.rank, x.total, x.slots])));
+  const pdf2 = await fetch(`${base}/admin/reports/merit/pdf?vacancy_id=${A}`, { headers: { cookie: Object.entries(admin.cookies).map(([k, v]) => `${k}=${v}`).join('; ') } });
+  check('Merit PDF still builds with an unranked candidate in the list', pdf2.status === 200 && Buffer.from(await pdf2.arrayBuffer()).slice(0, 4).toString() === '%PDF');
 
   // ================================================================ 5. ranking + tie-break (exam on), slots
   await mkVac({ title: 'Rank Exam', category: 'academic' });
@@ -216,6 +229,20 @@ class Client {
   check('Slots = 2 marks exactly the top 2 as "Within slots" (P4, P5)', c.rows.filter((x) => x.Slots === 'Within slots').map((x) => x.Name).join() === 'P4,P5', c.rows.map((x) => x.Slots).join('|'));
   check('Slots change is audit-logged', logs('VACANCY_SETTINGS_CHANGED').some((d) => /positions not set/.test(d) && /positions 2/.test(d)));
   check('The marker changes nothing else: statuses stay Shortlisted', c.rows.every((x) => x.Status === 'Shortlisted'));
+  // Candidates without both scores are listed after everyone who has both, are "Not ranked yet" and never get the slots marker.
+  addApp(R, 'P7', { q: 'PhD', years: 4, pubs: 5, exam: 99 });                // academic part 70, no personal data and no interview score
+  addApp(R, 'P8', { q: 'PhD', years: 4, pubs: 5, personal: 10, exam: 99 });   // 80, but the interview score is missing
+  r = await admin.post(settingsOf(R), { ...okSettings, academic_exam_enabled: 1, slots: '7' });
+  c = await csv(R);
+  const shown = (f) => c.rows.map(f).join('|');
+  check('Incomplete candidates stay listed, after all six complete ones (even with the best exam % of 99)', c.rows.map((x) => x.Name).join() === 'P4,P5,P6,P3,P2,P1,P8,P7', c.rows.map((x) => x.Name).join());
+  check('Complete candidates keep ranks 1 to 6; the two incomplete ones show "Not ranked yet"', c.rows.map((x) => x.Rank).join() === '1,2,3,4,5,6,Not ranked yet,Not ranked yet', shown((x) => x.Rank));
+  check('Incomplete totals are labelled: P8 "80 (incomplete)", P7 "70 (incomplete)"', c.rows.slice(6).map((x) => x['Total /100']).join('|') === '80 (incomplete)|70 (incomplete)' && c.rows.slice(0, 6).every((x) => !/incomplete/.test(x['Total /100'])), shown((x) => x['Total /100']));
+  check('Slots = 7 marks only the six ranked candidates; the unranked ones get no "Within slots" although places are left', shown((x) => x.Slots) === 'Within slots|Within slots|Within slots|Within slots|Within slots|Within slots||', shown((x) => x.Slots));
+  r = await interview(db.prepare("SELECT a.id FROM applications a JOIN users u ON u.id = a.user_id WHERE u.name = 'P8'").get().id, { interview_score: '19', personal_data_score: '10' });
+  c = await csv(R);
+  check('Once P8 has both scores it is ranked: total 70+10+19 = 99, rank 1, "Within slots"', !isErr(r) && c.rows[0].Name === 'P8' && c.rows[0].Rank === '1' && c.rows[0]['Total /100'] === '99' && c.rows[0].Slots === 'Within slots' && c.rows.find((x) => x.Name === 'P4').Rank === '2', shown((x) => `${x.Name}:${x.Rank}`));
+  check('P7 is now the only unranked candidate; ranks 1 to 7 are used by the complete ones', c.rows.map((x) => x.Rank).join() === '1,2,3,4,5,6,7,Not ranked yet' && c.rows[7].Name === 'P7' && c.rows[7].Slots === '', shown((x) => `${x.Name}:${x.Rank}`));
   // exam OFF: ties broken by interview only
   await mkVac({ title: 'Rank NoExam', category: 'academic' });
   const R2 = vacId('Rank NoExam');
@@ -224,6 +251,29 @@ class Client {
   addApp(R2, 'Q3', { q: 'Master', years: 4, personal: 10, interview: 10 }); // 65
   c = await csv(R2);
   check('Exam off: ranked by total, tie broken by interview (Q3 65, Q2 63/13, Q1 63/8)', c.rows.map((x) => x.Name).join() === 'Q3,Q2,Q1' && c.rows.every((x) => x.Result === '' && x['Exam %'] === ''), c.rows.map((x) => x.Name).join());
+  // stable ties: same total, same exam % (none here) and same interview score -> earlier application time, then the lower application id
+  await mkVac({ title: 'Rank Ties', category: 'academic' });
+  const T = vacId('Rank Ties');
+  const t1 = addApp(T, 'T1', { q: 'Master', years: 4, personal: 5, interview: 10 }); // 25 + 20 + 5 + 10 = 60 for all four
+  const t2 = addApp(T, 'T2', { q: 'Master', years: 4, personal: 5, interview: 10 });
+  const t3 = addApp(T, 'T3', { q: 'Master', years: 4, personal: 5, interview: 10 });
+  const t4 = addApp(T, 'T4', { q: 'Master', years: 4, personal: 5, interview: 10 });
+  const appliedAt = (id, ts) => db.prepare('UPDATE applications SET applied_at = ? WHERE id = ?').run(ts, id);
+  appliedAt(t1, '2026-03-05 09:00:00'); appliedAt(t2, '2026-03-01 09:00:00'); appliedAt(t3, '2026-03-01 09:00:00'); appliedAt(t4, '2026-03-03 09:00:00');
+  c = await csv(T);
+  check('All four tie on the total (60) and the interview score', c.rows.length === 4 && c.rows.every((x) => x['Total /100'] === '60' && x.Interview === '10'), c.rows.map((x) => x['Total /100']).join('|'));
+  check('Ties: the earlier application first, equal times by application id (T2, T3, T4, T1)', c.rows.map((x) => x.Name).join() === 'T2,T3,T4,T1', c.rows.map((x) => x.Name).join());
+  check('Ties: ranks are 1 to 4 in that order', c.rows.map((x) => x.Rank).join() === '1,2,3,4');
+  appliedAt(t2, '2026-03-09 09:00:00'); // T2 now applied last
+  c = await csv(T);
+  check('Changing the application time changes the tie order (T3, T4, T1, T2)', c.rows.map((x) => x.Name).join() === 'T3,T4,T1,T2', c.rows.map((x) => x.Name).join());
+  const orders = new Set();
+  for (let i = 0; i < 3; i++) orders.add((await csv(T)).rows.map((x) => x.Name).join());
+  check('The order is identical every time the report is produced', orders.size === 1, [...orders].join(' / '));
+  db.prepare('UPDATE applications SET interview_score = 10.5 WHERE id = ?').run(t2);
+  c = await csv(T);
+  check('A higher total still beats an earlier application (T2 applied last but totals 60.5, so it is first)', c.rows[0].Name === 'T2' && c.rows[0]['Total /100'] === '60.5', c.rows.map((x) => `${x.Name}:${x['Total /100']}`).join());
+
   // positions marker value limits
   for (const [name, v] of [['zero', '0'], ['negative', '-2'], ['decimal', '1.5'], ['text', 'x'], ['above 1000', '1001']]) {
     r = await admin.post(settingsOf(R2), { ...okSettings, slots: v });

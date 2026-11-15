@@ -80,8 +80,12 @@ const combinedOf = (a, v) => {
   };
 };
 
+// Text shown for a combined total: "59", or "59 (incomplete)" while the personal data score and/or the interview score
+// is still missing (missing scores count as 0 in the number itself). '' when the vacancy has no combined score.
+const totalLabel = (combined) => (combined ? `${combined.total}${combined.complete ? '' : ' (incomplete)'}` : '');
+
 // One entry per non-empty line.
 const splitLines = (text) =>
   String(text || '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
 
-module.exports = { LEVELS, LEVEL_LABELS, POINTS, MAX_ACADEMIC_SCORE, CAP_COLUMNS, round2, capScore, capsOf, schemeOf, combinedOf, levelOf, academicBreakdown, splitLines };
+module.exports = { LEVELS, LEVEL_LABELS, POINTS, MAX_ACADEMIC_SCORE, CAP_COLUMNS, round2, capScore, capsOf, schemeOf, combinedOf, totalLabel, levelOf, academicBreakdown, splitLines };

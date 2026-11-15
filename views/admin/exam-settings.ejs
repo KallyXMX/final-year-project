@@ -4,6 +4,7 @@
     <a href="/vacancies/<%= vacancy.id %>/applications">&larr; Back to applicants</a></div>
   <div class="card">
     <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+    <% if (locals.warning) { %><div class="alert alert-warn"><strong>Warning:</strong> <%= warning.text %></div><% } %>
     <% if (vacancy.category === 'academic' && Number(vacancy.academic_exam_enabled) !== 1) { %>
       <div class="alert alert-warn">The online exam is switched off for this academic vacancy.
         <a href="/admin/vacancies/<%= vacancy.id %>/settings">Turn it on in the vacancy settings</a>.</div>
@@ -35,7 +36,14 @@
         </div>
         <p class="hint mb-2">Each section has its own timer and is submitted automatically when time runs out. <%= sections.length > 1 ? 'The final score is the weighted average of the section percentages.' : 'Only one section is on, so the final score is that section\'s percentage (full weight).' %></p>
       </fieldset>
-      <button type="submit" class="btn btn-primary">Save &amp; notify shortlisted applicants</button>
+      <% if (locals.warning) { %>
+        <div class="actions">
+          <button type="submit" name="confirm_empty" value="1" class="btn btn-warning btn-auto">Continue anyway (skip <%= warning.section %>)</button>
+          <a href="/admin/vacancies/<%= vacancy.id %>/questions" class="btn btn-secondary">Go back and add questions</a>
+        </div>
+      <% } else { %>
+        <button type="submit" class="btn btn-primary">Save &amp; notify shortlisted applicants</button>
+      <% } %>
     </form>
     <% } %>
   </div>

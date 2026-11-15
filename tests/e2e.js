@@ -109,6 +109,10 @@ class Client {
   check('Unqualified non-academic rejected', st('weak@t.com') === 'Rejected');
   check('Qualified academic shortlisted', st('acad@t.com') === 'Shortlisted');
   check('Unqualified academic rejected', st('acadweak@t.com') === 'Rejected');
+  // The shortlisting notification lists only the sections that are on (here both), and says nothing about tests when there is no exam.
+  const shortlistMsg = (e) => (db.prepare("SELECT message m FROM notifications WHERE user_id=(SELECT id FROM users WHERE email=?) AND message LIKE 'Congratulations%' ORDER BY id DESC").get(e) || {}).m || '';
+  check('Shortlisting message names both sections when both are on', /aptitude and computer literacy tests are scheduled/.test(shortlistMsg('good@t.com')), shortlistMsg('good@t.com'));
+  check('Shortlisting message for an academic vacancy without an exam does not mention tests', /shortlisted/.test(shortlistMsg('acad@t.com')) && !/aptitude|literacy|test/i.test(shortlistMsg('acad@t.com')), shortlistMsg('acad@t.com'));
   r = await apply(new Client(base), vNA.id); // anon
   const late = await mkApplicant('late'); r = await apply(late, vNA.id); check('Applications refused after close', r.status === 302 && /closed|not open/i.test(decodeURIComponent(r.loc)));
 
@@ -183,6 +187,17 @@ class Client {
   const q1 = db.prepare('SELECT id FROM questions LIMIT 1').get().id;
   r = await admin.post(`/questions/${q1}/delete`, {}); check('Question cannot be deleted after exam started', db.prepare('SELECT COUNT(*) c FROM questions').get().c === 8 && /cannot/i.test(decodeURIComponent(r.loc || '')));
   r = await admin.post(`/applications/${aid}/status`, { status: 'Accepted' }); check('HR accepts a recommended candidate', db.prepare('SELECT status s FROM applications WHERE id=?').get(aid).s === 'Accepted');
+  // Accepted is final: refused by the server itself (this request is what a crafted form or script would send).
+  const statusLogs = () => db.prepare("SELECT COUNT(*) c FROM audit_logs WHERE action = 'STATUS_CHANGE'").get().c;
+  const notesOf = () => db.prepare('SELECT COUNT(*) c FROM notifications WHERE user_id = (SELECT user_id FROM applications WHERE id = ?)').get(aid).c;
+  const logsBefore = statusLogs(), notesBefore = notesOf();
+  r = await admin.post(`/applications/${aid}/status`, { status: 'Rejected' });
+  check('Accepted is final: the server refuses to reject an Accepted application', db.prepare('SELECT status s FROM applications WHERE id=?').get(aid).s === 'Accepted' && r.status === 302 && /type=error/.test(r.loc || ''), r.loc || '');
+  check('The refusal shows a clear error message', /accepted.*final.*cannot be rejected/i.test(decodeURIComponent(r.loc || '')), decodeURIComponent(r.loc || ''));
+  check('A refused rejection writes no status-change log entry and sends no notification', statusLogs() === logsBefore && notesOf() === notesBefore);
+  const slowAppId = db.prepare("SELECT id FROM applications WHERE user_id=(SELECT id FROM users WHERE email='slow@t.com')").get().id;
+  r = await admin.post(`/applications/${slowAppId}/status`, { status: 'Rejected' });
+  check('Rejecting an application that is not Accepted still works', db.prepare('SELECT status s FROM applications WHERE id=?').get(slowAppId).s === 'Rejected' && !/type=error/.test(r.loc || ''), r.loc || '');
   r = await admin.req('GET', '/admin/audit-logs?action=LOGIN'); check('Audit log filter by action', r.status === 200 && /LOGIN/.test(r.text));
   r = await admin.req('GET', `/vacancies/${vNA.id}/applications`); check('HR applicants-per-vacancy page', r.status === 200 && r.text.includes('good@t.com'));
   r = await mkVac({ title: 'Temp', department: 'X', category: 'non-academic' });

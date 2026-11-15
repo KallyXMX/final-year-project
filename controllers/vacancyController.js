@@ -238,6 +238,10 @@ const updateApplicationStatus = (req, res) => {
   const app = applicationsSvc.findWithVacancyTitle(req.params.applicationId);
   if (!app) return res.status(404).render('404');
   const back = `/vacancies/${app.vacancy_id}/applications`;
+  // Accepted is final: enforced here, not only by hiding the button on the page.
+  if (app.status === STATUS.ACCEPTED && status === STATUS.REJECTED) {
+    return redirectWith(res, back, 'This application has already been accepted. An accepted application is final and cannot be rejected.', 'error');
+  }
   if (status === STATUS.ACCEPTED && ![STATUS.SHORTLISTED, STATUS.RECOMMENDED].includes(app.status)) {
     return redirectWith(res, back, 'Only shortlisted or recommended candidates can be accepted.', 'error');
   }

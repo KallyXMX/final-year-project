@@ -47,7 +47,7 @@
         <% if (!nonAcad) { %><td><%= capScore(a.academic_score) %></td><% } %>
         <% if (usesExam) { %><td><%= a.percentage !== null ? (+a.percentage).toFixed(1) + '% (' + a.score + '/' + a.total_questions + ')' : 'Not taken' %></td><% } %>
         <td><%= a.interview_score !== null ? a.interview_score : '—' %></td>
-        <% if (caps && a.combined) { %><td><%= a.personal_data_score !== null ? a.personal_data_score : '—' %></td><td><strong><%= a.combined.total %></strong></td><% } %>
+        <% if (caps && a.combined) { %><td><%= a.personal_data_score !== null ? a.personal_data_score : '—' %></td><td><strong><%= a.combined.total %><%= a.combined.complete ? '' : ' (incomplete)' %></strong></td><% } %>
         <td><span class="badge status-<%= a.status %>"><%= a.status %></span></td>
         <td>
           <% if (!['Accepted'].includes(a.status)) { %>

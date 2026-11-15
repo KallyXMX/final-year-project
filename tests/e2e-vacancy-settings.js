@@ -249,6 +249,58 @@ class Client {
   check('Sections can be switched on/off before the exam starts (Literacy only)', r.status === 302 && vac(vacId('Unlocked')).aptitude_enabled === 0 && vac(vacId('Unlocked')).literacy_enabled === 1);
   check('Section change is audit-logged', logs('VACANCY_SETTINGS_CHANGED').some((d) => /Aptitude OFF/.test(d)));
 
+  // ---------------------------------------------------------------- shortlisting message lists only the sections that are on
+  const { shortlistVacancy } = require(path.join(root, 'services/shortlisting'));
+  const congrats = (email) => (db.prepare("SELECT message m FROM notifications WHERE user_id = (SELECT id FROM users WHERE email = ?) AND message LIKE 'Congratulations%' ORDER BY id DESC").get(email) || {}).m || '';
+  const shortlistNotice = async (title, flags, who, { scheduled = false, section } = {}) => {
+    await mkVac({ title, category: 'non-academic', ...flags });
+    const v = vac(vacId(title));
+    if (scheduled) { for (let i = 0; i < 4; i++) await addQ(v.id, section, i); await schedule(v.id); }
+    const c = await mkApplicant(who);
+    await apply(c, v.id, { highest_qualification: 'Bachelor', experience_years: '2' });
+    db.prepare('UPDATE vacancies SET closed_at = ? WHERE id = ?').run(new Date().toISOString(), v.id);
+    shortlistVacancy(v.id, null);
+    return congrats(`${who}@t.com`);
+  };
+  let msg = await shortlistNotice('Notice Both', {}, 'nboth');
+  check('Notice (both sections on, not scheduled): names both sections', /aptitude and computer literacy tests are scheduled/.test(msg), msg);
+  msg = await shortlistNotice('Notice Lit', { aptitude_enabled: undefined }, 'nlit');
+  check('Notice (Computer Literacy only): names only that section', /computer literacy test is scheduled/.test(msg) && !/aptitude/i.test(msg) && !/tests/.test(msg), msg);
+  msg = await shortlistNotice('Notice Apt', { literacy_enabled: undefined }, 'napt');
+  check('Notice (Aptitude only): names only that section', /aptitude test is scheduled/.test(msg) && !/literacy/i.test(msg) && !/tests/.test(msg), msg);
+  msg = await shortlistNotice('Notice Lit Scheduled', { aptitude_enabled: undefined }, 'nlits', { scheduled: true, section: 'Computer Literacy' });
+  check('Notice (Computer Literacy only, scheduled): "Your computer literacy test opens ... and closes ..."', /Your computer literacy test opens .+ and closes /.test(msg) && !/aptitude/i.test(msg), msg);
+
+  // ---------------------------------------------------------------- empty section warning when saving the exam schedule
+  const examLogsBefore = logs('EXAM_SCHEDULED').length;
+  await mkVac({ title: 'Warn Literacy', category: 'non-academic' }); // both sections on
+  const W = vacId('Warn Literacy');
+  for (let i = 0; i < 4; i++) await addQ(W, 'Aptitude', i);            // Computer Literacy has no questions
+  r = await schedule(W);
+  check('Empty section: saving shows a warning that names the section', r.status === 200 && /Warning/.test(r.text) && /Computer Literacy section is switched on but has no questions/.test(r.text), `status ${r.status}`);
+  check('Empty section: the warning offers "Continue anyway" and "Go back and add questions"', /Continue anyway/.test(r.text) && /Go back and add questions/.test(r.text));
+  check('Empty section: nothing is saved or logged until HR chooses', !vac(W).exam_start && logs('EXAM_SCHEDULED').length === examLogsBefore);
+  check('Empty section: the form keeps what HR typed (pass mark, questions per section)', /name="pass_mark"[^>]*value="50"/.test(r.text) && /name="questions_per_section"[^>]*value="4"/.test(r.text));
+  r = await schedule(W, { confirm_empty: '1' });
+  check('Empty section: "Continue anyway" saves the schedule', r.status === 302 && /scheduled/i.test(decodeURIComponent(r.loc || '')) && !!vac(W).exam_start, decodeURIComponent(r.loc || ''));
+  check('Empty section: the audit log records that HR continued without questions', logs('EXAM_SCHEDULED').some((d) => d.includes(`vacancy ID ${W}`) && /Computer Literacy section has no questions/.test(d)));
+  await mkVac({ title: 'Warn Then Fix', category: 'non-academic' });
+  const W2 = vacId('Warn Then Fix');
+  for (let i = 0; i < 4; i++) await addQ(W2, 'Aptitude', i);
+  r = await schedule(W2);
+  check('Empty section (go back path): first save shows the warning', r.status === 200 && /has no questions/.test(r.text) && !vac(W2).exam_start);
+  for (let i = 0; i < 4; i++) await addQ(W2, 'Computer Literacy', i);
+  r = await schedule(W2);
+  check('Empty section (go back path): after adding questions it saves with no warning', r.status === 302 && !!vac(W2).exam_start, `status ${r.status}`);
+  await mkVac({ title: 'Warn Switched Off', category: 'non-academic', literacy_enabled: undefined }); // Aptitude only
+  const W3 = vacId('Warn Switched Off');
+  for (let i = 0; i < 4; i++) await addQ(W3, 'Aptitude', i);
+  r = await schedule(W3);
+  check('A switched-off section with no questions raises no warning', r.status === 302 && !!vac(W3).exam_start, `status ${r.status}`);
+  await mkVac({ title: 'Warn No Questions', category: 'non-academic' });
+  r = await schedule(vacId('Warn No Questions'));
+  check('No questions at all is still refused outright (not just a warning)', r.status === 400 && /Add questions/.test(r.text) && !vac(vacId('Warn No Questions')).exam_start, `status ${r.status}`);
+
   // ---------------------------------------------------------------- old vacancies behave as before
   db.prepare(`INSERT INTO vacancies (title, department, category, description, requirements, min_qualification, min_experience_years, opens_at, deadline)
               VALUES ('Legacy Academic','X','academic','d','r','Bachelor',0,?,?)`).run(today, today); // no new columns given

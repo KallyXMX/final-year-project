@@ -7,7 +7,14 @@ const { vacancyState, examState, hasExam } = require('../utils/vacancy');
 const { fmtDateTime } = require('../utils/time');
 const { notify } = require('./notifications');
 const { logAction } = require('./audit');
+const { sectionConfig } = require('./exam');
 const { STATUS } = require('../utils/constants');
+
+// "aptitude and computer literacy tests", "aptitude test" or "computer literacy test": only the sections HR switched on.
+const testsLabel = (vacancy) => {
+  const names = sectionConfig(vacancy).map((s) => s.name.toLowerCase());
+  return { text: `${names.join(' and ')} ${names.length > 1 ? 'tests' : 'test'}`, plural: names.length > 1 };
+};
 
 // Requirement 4.3: verify minimum requirements against the vacancy criteria, shortlist
 // qualified applicants automatically, store the result and notify the applicants.
@@ -44,9 +51,10 @@ const shortlistVacancy = (vacancyId, actorId = null, req = null) => {
         let note = 'Meets the minimum requirements for this vacancy.';
         let msg = `Congratulations! You have been shortlisted for "${vacancy.title}".`;
         if (hasExam(vacancy)) {
+          const t = testsLabel(vacancy);
           msg += examState(vacancy) === 'NotScheduled'
-            ? ' You will be notified when the aptitude and computer literacy tests are scheduled.'
-            : ` Your tests open ${fmtDateTime(vacancy.exam_start)} and close ${fmtDateTime(vacancy.exam_end)}.`;
+            ? ` You will be notified when the ${t.text} ${t.plural ? 'are' : 'is'} scheduled.`
+            : ` Your ${t.text} ${t.plural ? 'open' : 'opens'} ${fmtDateTime(vacancy.exam_start)} and ${t.plural ? 'close' : 'closes'} ${fmtDateTime(vacancy.exam_end)}.`;
         } else {
           msg += ' Your qualifications will be evaluated by the panel ahead of the physical interview.';
         }

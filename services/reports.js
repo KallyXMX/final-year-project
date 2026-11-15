@@ -3,7 +3,7 @@ const db = require('../models/db');
 const PDFDocument = require('pdfkit');
 const { createObjectCsvStringifier } = require('csv-writer');
 const { vacancyState } = require('../utils/vacancy');
-const { capScore, combinedOf } = require('../utils/qualifications');
+const { capScore, combinedOf, totalLabel } = require('../utils/qualifications');
 const { fmtDateTime } = require('../utils/time');
 
 // Requirement 4.7: applicant reports, shortlisted candidate reports, examination results and
@@ -66,33 +66,38 @@ const REPORTS = {
     title: 'Examination Results & Merit List',
     file: 'Merit_List',
     columns: [
-      { key: 'rank', header: 'Rank', width: 35 },
-      { key: 'name', header: 'Name', width: 120 },
-      { key: 'vacancy', header: 'Vacancy', width: 130 },
-      { key: 'category', header: 'Type', width: 65 },
-      { key: 'academic', header: 'Academic pts', width: 60 },
-      { key: 'exam', header: 'Exam %', width: 50 },
-      { key: 'result', header: 'Result', width: 55 },
-      { key: 'interview', header: 'Interview', width: 55 },
-      { key: 'status', header: 'Status', width: 75 },
+      { key: 'rank', header: 'Rank', width: 80 },
+      { key: 'name', header: 'Name', width: 100 },
+      { key: 'vacancy', header: 'Vacancy', width: 100 },
+      { key: 'category', header: 'Type', width: 55 },
+      { key: 'academic', header: 'Academic pts', width: 55 },
+      { key: 'exam', header: 'Exam %', width: 45 },
+      { key: 'result', header: 'Result', width: 50 },
+      { key: 'interview', header: 'Interview', width: 50 },
+      { key: 'status', header: 'Status', width: 70 },
       // Combined recruitment score (academic vacancies with category maxima only; empty otherwise).
       { key: 'qualification', header: 'Qualification', width: 55 },
       { key: 'experience', header: 'Experience', width: 50 },
       { key: 'publications', header: 'Publications', width: 55 },
       { key: 'personal', header: 'Personal data', width: 50 },
-      { key: 'total', header: 'Total /100', width: 45 },
+      { key: 'total', header: 'Total /100', width: 90 },
       { key: 'slots', header: 'Slots', width: 55 }
     ],
     // Non-academic candidates are ranked by weighted exam %, academic candidates by their
     // qualification points; interview score (when recorded) breaks ties (Requirement 2.8).
     // Academic vacancies with category maxima are ranked by the combined total (academic part + personal data + interview).
+    // On those vacancies a candidate who does not yet have BOTH a personal data score and an interview score is listed after
+    // everyone who has both, shows "Not ranked yet" instead of a rank, and never gets the "Within slots" marker; the total is
+    // shown as e.g. "59 (incomplete)".
+    // Remaining ties are broken by exam %, interview score, then the earlier application time, then the application id,
+    // so the order is always the same.
     // When a vacancy has a number of positions (slots), that many top-ranked rows are marked "Within slots" (visual only).
     rows: (vacancyId) => {
       const f = vacancyFilter(vacancyId);
       const raw = db.prepare(`
         SELECT a.id, a.vacancy_id, u.name, v.title AS vacancy, v.category, v.academic_exam_enabled, a.academic_score,
                a.exam_completed, er.percentage, er.passed, a.interview_score, a.personal_data_score, a.status,
-               a.highest_qualification, a.experience_years, a.journal_publications_count, a.seminars_attended, v.slots,
+               a.highest_qualification, a.experience_years, a.journal_publications_count, a.seminars_attended, a.applied_at, v.slots,
                v.pts_phd, v.pts_master, v.pts_bachelor, v.pts_per_year, v.pts_per_publication, v.pts_per_seminar,
                v.max_qualification, v.max_experience, v.max_publications, v.max_personal_data, v.max_interview
         FROM applications a JOIN users u ON u.id = a.user_id JOIN vacancies v ON v.id = a.vacancy_id
@@ -101,19 +106,27 @@ const REPORTS = {
       // Academic candidates are listed from shortlisting; when HR enabled the exam for the vacancy they are listed once they have sat it.
       const usesExam = (r) => r.category !== 'academic' || Number(r.academic_exam_enabled) === 1;
       const eligible = raw.filter((r) => (r.category === 'academic' ? !usesExam(r) || r.exam_completed : r.exam_completed));
-      eligible.forEach((r) => { r.combined = r.category === 'academic' ? combinedOf(r, r) : null; });
+      eligible.forEach((r) => {
+        r.combined = r.category === 'academic' ? combinedOf(r, r) : null;
+        // Only vacancies with maxima can be "not ranked yet": the candidate still lacks personal data and/or interview score.
+        r.unranked = !!(r.combined && !r.combined.complete);
+      });
       const metric = (r) => (r.combined ? r.combined.total : r.category === 'academic' ? capScore(r.academic_score) : r.percentage || 0);
+      const earlier = (x, y) => (x.applied_at < y.applied_at ? -1 : x.applied_at > y.applied_at ? 1 : 0);
       eligible.sort((x, y) =>
         x.vacancy_id - y.vacancy_id ||
+        Number(x.unranked) - Number(y.unranked) ||
         metric(y) - metric(x) ||
         (r1(y.percentage) || 0) - (r1(x.percentage) || 0) ||
-        (y.interview_score ?? -1) - (x.interview_score ?? -1));
+        (y.interview_score ?? -1) - (x.interview_score ?? -1) ||
+        earlier(x, y) ||
+        x.id - y.id);
       let lastVacancy = null, rank = 0;
       return eligible.map((r) => {
         if (r.vacancy_id !== lastVacancy) { lastVacancy = r.vacancy_id; rank = 0; }
-        rank++;
+        if (!r.unranked) rank++; // unranked rows sort last, so they never shift the ranks above them
         return {
-          rank,
+          rank: r.unranked ? 'Not ranked yet' : rank,
           name: r.name,
           vacancy: r.vacancy,
           category: r.category,
@@ -126,8 +139,8 @@ const REPORTS = {
           experience: r.combined ? r.combined.parts.experience : '',
           publications: r.combined ? r.combined.parts.publications : '',
           personal: r.combined ? (r.combined.personal ?? '') : '',
-          total: r.combined ? r.combined.total : '',
-          slots: r.slots && rank <= r.slots ? 'Within slots' : ''
+          total: r.combined ? totalLabel(r.combined) : '',
+          slots: !r.unranked && r.slots && rank <= r.slots ? 'Within slots' : ''
         };
       });
     }
