@@ -61,6 +61,7 @@ class Client {
     check(`Create rejected: ${name}`, r.status === 400, `status ${r.status}`);
   }
   check('Rejected vacancies were not saved', countVac() === before);
+  let r;
   r = await mkVac({ title: 'Non-academic no sections', category: 'non-academic', aptitude_enabled: undefined, literacy_enabled: undefined });
   check('Create rejected: both sections off (non-academic vacancy)', r.status === 400, `status ${r.status}`);
   check('Rejected non-academic vacancy was not saved', countVac() === before);
@@ -77,7 +78,7 @@ class Client {
   check('Settings page includes the section toggle script', r.status === 200 && /id="exam-sections"/.test(r.text));
 
   // ---------------------------------------------------------------- 2. defaults + custom scheme on create
-  let r = await mkVac({ title: 'Lecturer A', category: 'academic', min_qualification: 'Bachelor' });
+  r = await mkVac({ title: 'Lecturer A', category: 'academic', min_qualification: 'Bachelor' });
   const A = vac(vacId('Lecturer A'));
   check('Defaults stored as 40/25/10/5/4/2', r.status === 302 && [A.pts_phd, A.pts_master, A.pts_bachelor, A.pts_per_year, A.pts_per_publication, A.pts_per_seminar].join() === '40,25,10,5,4,2');
   check('Academic exam off by default; both sections on', A.academic_exam_enabled === 0 && A.aptitude_enabled === 1 && A.literacy_enabled === 1);
