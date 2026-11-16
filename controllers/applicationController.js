@@ -10,7 +10,7 @@ const { logAction } = require('../services/audit');
 const { notify } = require('../services/notifications');
 const { shortlistVacancy } = require('../services/shortlisting');
 const { vacancyState } = require('../utils/vacancy');
-const { academicBreakdown, schemeOf, splitLines, capsOf, combinedOf } = require('../utils/qualifications');
+const { academicBreakdown, schemeOf, splitLines, capsOf, combinedOf, levelOf, LEVEL_LABELS } = require('../utils/qualifications');
 const { parseScore } = require('../utils/vacancySettings');
 const examSvc = require('../services/exam');
 const { hasExam } = require('../utils/vacancy');
@@ -31,6 +31,19 @@ const getAllApplications = (req, res) => {
 
 // ------------------------------------------------------------ applicant detail / panel summary (4.5)
 
+// Display-only comparison of the applicant with the vacancy's minimum criteria. Uses the same rules as automatic
+// shortlisting (services/shortlisting.js evaluate): qualification level, years of experience, CV attached.
+const criteriaOf = (a) => {
+  const needLevel = levelOf(a.min_qualification);
+  const needYears = a.min_experience_years || 0;
+  const haveYears = a.experience_years || 0;
+  return [
+    { name: 'Qualification', required: needLevel === 0 ? 'No minimum' : LEVEL_LABELS[needLevel], applicant: a.highest_qualification || '—', ok: levelOf(a.highest_qualification) >= needLevel, bad: 'Below minimum' },
+    { name: 'Experience', required: `${needYears} year(s)`, applicant: `${haveYears} year(s)`, ok: haveYears >= needYears, bad: 'Below minimum' },
+    { name: 'CV', required: 'CV attached', applicant: a.cv_path ? 'Attached' : 'Not attached', ok: !!a.cv_path, bad: 'Missing' }
+  ];
+};
+
 const renderApplicationDetail = (req, res) => {
   const application = applicationsSvc.findDetail(req.params.id);
   if (!application) return res.status(404).render('404');
@@ -40,7 +53,7 @@ const renderApplicationDetail = (req, res) => {
   const exam = applicationsSvc.findExamResult(application.user_id, application.vacancy_id);
   const sectionScores = exam && exam.section_scores ? JSON.parse(exam.section_scores) : [];
   res.render('admin/applicant-detail', {
-    application, breakdown, scheme, caps: scheme.caps, combined: combinedOf(application, application), exam, sectionScores, usesExam: hasExam(application),
+    application, breakdown, scheme, caps: scheme.caps, combined: combinedOf(application, application), exam, sectionScores, usesExam: hasExam(application), criteria: criteriaOf(application),
     lists: {
       qualifications: splitLines(application.qualifications_text),
       experience: splitLines(application.experience_text),

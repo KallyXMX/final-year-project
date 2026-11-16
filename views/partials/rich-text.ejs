@@ -1,0 +1,3 @@
+<%# Plain text with line breaks kept (CSS pre-line); lines that start like "1. Mandatory Credentials" are shown in bold. Expects: text. -%>
+<% const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); -%>
+<%- String(text || '').split(/\r?\n/).map((l) => (/^\s*\d+\.\s/.test(l) ? '<strong>' + esc(l) + '</strong>' : esc(l))).join('\n') %>

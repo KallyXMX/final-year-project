@@ -11,10 +11,10 @@
       <li>Pass mark: <strong><%= vacancy.pass_mark ?? 50 %>%</strong>. Window closes <strong><%= fmtDateTime(vacancy.exam_end) %></strong>.</li>
     </ul>
     <div class="table-wrap"><table>
-      <thead><tr><th>Section</th><th>Questions</th><th>Time</th><th>Weight</th></tr></thead>
+      <thead><tr><th>Section</th><th class="num">Questions</th><th class="num">Time</th><th class="num">Weight</th></tr></thead>
       <tbody>
       <% sections.forEach(s => { %>
-        <tr><td><%= s.name %></td><td><%= Math.min(perSection, s.available) %></td><td><%= s.minutes %> min</td><td><%= s.weight %></td></tr>
+        <tr><td><%= s.name %></td><td class="num"><%= Math.min(perSection, s.available) %></td><td class="num"><%= s.minutes %> min</td><td class="num"><%= s.weight %></td></tr>
       <% }) %>
       </tbody>
     </table></div>

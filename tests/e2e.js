@@ -270,6 +270,63 @@ class Client {
   r = await orph.req('POST', `/vacancies/${vOrph}/apply?_csrf=${orphTok && orphTok[1]}`, { multipart: applyForm() });
   check('Control: the same upload with the right token is accepted and its 2 files are kept', r.status === 302 && uploadCount() === filesBefore + 2 && !!db.prepare('SELECT 1 FROM applications WHERE vacancy_id = ?').get(vOrph), `status ${r.status}, ${filesBefore} -> ${uploadCount()}`);
 
+  // ---- design-readability: vacancy cards, HR table, criteria table, stacked summary
+  {
+    const longDesc = 'Overview line one\n1. Mandatory Credentials\nBullet two\nBullet three\nBullet four <b>x</b>';
+    r = await mkVac({ title: 'Card Test', department: 'IT', category: 'non-academic', min_qualification: 'Master', min_experience_years: 4, description: longDesc, requirements: 'Req line A\n2. Desirable Skills' });
+    r = await good.req('GET', '/vacancies');
+    const card = (r.text.split('Card Test')[1] || '').split('class="card"')[0];
+    check('Vacancy card: minimum qualification and experience line', r.status === 200 && /Minimum qualification:\s*<strong>Master<\/strong>/.test(card) && /Minimum experience:\s*<strong>4 year\(s\)<\/strong>/.test(card));
+    check('Vacancy card: <details> expander with the label', /<details class="vac-details">\s*<summary>Read full description and requirements<\/summary>/.test(card));
+    check('Vacancy card: Description and Requirements are separate labelled blocks', /<h4>Description<\/h4>/.test(card) && /<h4>Requirements<\/h4>/.test(card) && card.indexOf('<h4>Description</h4>') < card.indexOf('<h4>Requirements</h4>'));
+    check('Vacancy card: numbered lines are bold', /<strong>1\. Mandatory Credentials<\/strong>/.test(card) && /<strong>2\. Desirable Skills<\/strong>/.test(card));
+    check('Vacancy card: line breaks kept and text is escaped', /Overview line one\n<strong>1\. Mandatory Credentials<\/strong>\nBullet two/.test(card) && card.includes('&lt;b&gt;x&lt;/b&gt;') && !card.includes('<b>x</b>'));
+    check('Vacancy card: short preview block present', /<div class="vac-preview">/.test(card));
+    check('Vacancy card: still has the old whole-description labels removed', !/<strong>Description:<\/strong>/.test(card));
+    check('Vacancy card: no JavaScript needed for the expander (no onclick on the card)', !/onclick/.test(card));
+
+    // HR applicants table (non-academic and academic versions)
+    for (const [label, v, who] of [['non-academic', vNA, 'good'], ['academic', vAC, 'acad']]) {
+      r = await admin.req('GET', `/vacancies/${v.id}/applications`);
+      const appId = db.prepare("SELECT id FROM applications WHERE user_id=(SELECT id FROM users WHERE email=?)").get(`${who}@t.com`).id;
+      check(`HR table (${label}): separate Application column header`, r.status === 200 && /<th class="col-application">Application<\/th>/.test(r.text));
+      check(`HR table (${label}): "View application" button links to the details page`, new RegExp(`<a href="/admin/applications/${appId}" class="btn btn-primary btn-view">View application</a>`).test(r.text));
+      check(`HR table (${label}): applicant name is a link too`, new RegExp(`<a href="/admin/applications/${appId}"><strong>${who}</strong></a>`).test(r.text));
+      check(`HR table (${label}): the small "Details & documents" link is gone`, !/Details (&amp;|&) documents/.test(r.text));
+      check(`HR table (${label}): number columns are centred (header and cells)`, /<th class="num">Exp\.<\/th>/.test(r.text) && /<td class="num">/.test(r.text));
+    }
+    r = await admin.req('GET', `/vacancies/${vNA.id}/applications`);
+    check('HR table: Accept asks "Are you sure?" with the applicant name', /data-confirm="Accept good\? This is final\." onclick="return confirm\(this\.dataset\.confirm\)">Accept<\/button>/.test(r.text));
+    check('HR table: Reject asks for confirmation', /data-confirm="Reject [^"]+" onclick="return confirm\(this\.dataset\.confirm\)">Reject<\/button>/.test(r.text) || !/>Reject<\/button>/.test(r.text));
+    check('HR table: Decision column keeps only Accept/Reject (no view link inside it)', !/col-decision">[^]*?View application[^]*?<\/td>/.test((r.text.match(/<td class="col-decision">[^]*?<\/td>/g) || []).join('')));
+
+    // criteria table
+    const rowFor = (html, name) => (new RegExp(`<tr><td class="label-cell">${name}</td>[^]*?</tr>`).exec(html) || [''])[0];
+    r = await admin.req('GET', `/admin/applications/${gid}`);
+    check('Criteria table: header Criterion / Required / Applicant / Result', r.status === 200 && /<th>Criterion<\/th><th>Required<\/th><th>Applicant<\/th><th>Result<\/th>/.test(r.text));
+    check('Criteria table: qualified applicant meets all three rows', ['Qualification', 'Experience', 'CV'].every((n) => /result-ok">&#10003; Meets/.test(rowFor(r.text, n))));
+    const weakId = db.prepare("SELECT id FROM applications WHERE user_id=(SELECT id FROM users WHERE email='weak@t.com')").get().id;
+    r = await admin.req('GET', `/admin/applications/${weakId}`);
+    check('Criteria table: too little experience -> "Below minimum" (red, with words); qualification and CV still Meets', /result-bad">&#10007; Below minimum/.test(rowFor(r.text, 'Experience')) && /Meets/.test(rowFor(r.text, 'Qualification')) && /Meets/.test(rowFor(r.text, 'CV')));
+    db.prepare('UPDATE applications SET cv_path = NULL WHERE id = ?').run(weakId);
+    r = await admin.req('GET', `/admin/applications/${weakId}`);
+    check('Criteria table: no CV -> "Missing"', /result-bad">&#10007; Missing/.test(rowFor(r.text, 'CV')) && /Not attached/.test(rowFor(r.text, 'CV')));
+    db.prepare("UPDATE applications SET cv_path = 'x.pdf' WHERE id = ?").run(weakId);
+    const awId = db.prepare("SELECT id FROM applications WHERE user_id=(SELECT id FROM users WHERE email='acadweak@t.com')").get().id;
+    r = await admin.req('GET', `/admin/applications/${awId}`);
+    check('Criteria table: qualification below the vacancy minimum -> "Below minimum"', /result-bad">&#10007; Below minimum/.test(rowFor(r.text, 'Qualification')));
+
+    // stacked summary with counts
+    r = await admin.req('GET', `/admin/applications/${aid}`);
+    check('Summary card: four stacked sections with counts', ['Academic qualifications (1)', 'Work experience (1)', 'Research publications (2)', 'Seminars & workshops (1)'].every((h) => r.text.includes(`<h4>${h.replace('&', '&amp;')}</h4>`)), 'headings missing');
+    check('Summary card: no longer laid out in columns', !/grid grid-2">\s*<div class="summary-section"/.test(r.text) && (r.text.match(/class="summary-section"/g) || []).length === 4);
+    db.prepare("UPDATE applications SET seminars_text = '' WHERE id = ?").run(aid);
+    r = await admin.req('GET', `/admin/applications/${aid}`);
+    check('Summary card: empty list shows count 0 and "None provided by the applicant"', r.text.includes('<h4>Seminars &amp; workshops (0)</h4>') && /<p class="text-muted">None provided by the applicant<\/p>/.test(r.text));
+    r = await admin.req('GET', `/admin/applications/${gid}`);
+    check('Summary card (non-academic): only the two sections that apply', (r.text.match(/class="summary-section"/g) || []).length === 2 && !/Research publications/.test(r.text));
+  }
+
   const failed = results.filter((x) => !x.ok);
   console.log(`\n${results.length - failed.length}/${results.length} passed`);
   await cleanup({ server, db, tmp }); // never throws; a cleanup problem only prints a warning

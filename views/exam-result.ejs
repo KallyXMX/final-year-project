@@ -12,9 +12,9 @@
   <div class="card">
     <h2 style="font-size:16px;margin-bottom:10px;">Section breakdown</h2>
     <div class="table-wrap"><table>
-      <thead><tr><th>Section</th><th>Correct</th><th>Score</th><th>Weight</th></tr></thead>
+      <thead><tr><th>Section</th><th class="num">Correct</th><th class="num">Score</th><th class="num">Weight</th></tr></thead>
       <tbody><% sections.forEach(s => { %>
-        <tr><td><%= s.section %></td><td><%= s.correct %> / <%= s.total %></td><td><%= (+s.percentage).toFixed(1) %>%</td><td><%= s.weight %></td></tr>
+        <tr><td><%= s.section %></td><td class="num"><%= s.correct %> / <%= s.total %></td><td class="num"><%= (+s.percentage).toFixed(1) %>%</td><td class="num"><%= s.weight %></td></tr>
       <% }) %></tbody>
     </table></div>
   </div>

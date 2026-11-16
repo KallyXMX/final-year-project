@@ -34,26 +34,26 @@
 <% if (applications.length === 0) { %>
   <div class="empty">No applications have been submitted for this vacancy yet.</div>
 <% } else { %>
-  <div class="table-wrap"><table>
-    <thead><tr><th>Applicant</th><th>Qualification</th><th>Exp.</th>
-      <% if (!nonAcad) { %><th>Academic pts</th><% } %><% if (usesExam) { %><th>Exam</th><% } %><th>Interview</th><% if (caps) { %><th>Personal data</th><th>Total /100</th><% } %><th>Status</th><th>Decision</th></tr></thead>
+  <div class="table-wrap"><table class="applicants-table">
+    <thead><tr><th>Applicant</th><th>Qualification</th><th class="num">Exp.</th>
+      <% if (!nonAcad) { %><th class="num">Academic pts</th><% } %><% if (usesExam) { %><th class="num">Exam</th><% } %><th class="num">Interview</th><% if (caps) { %><th class="num">Personal data</th><th class="num">Total /100</th><% } %><th>Status</th><th class="col-application">Application</th><th class="col-decision">Decision</th></tr></thead>
     <tbody>
     <% applications.forEach(a => { %>
       <tr>
-        <td><strong><%= a.applicant_name %></strong><br><span class="text-muted" style="font-size:12px;"><%= a.applicant_email %></span><br>
-          <a href="/admin/applications/<%= a.id %>" style="font-size:12px;">Details &amp; documents</a></td>
+        <td><a href="/admin/applications/<%= a.id %>"><strong><%= a.applicant_name %></strong></a><br><span class="text-muted small"><%= a.applicant_email %></span></td>
         <td><%= a.highest_qualification || '—' %></td>
-        <td><%= a.experience_years || 0 %></td>
-        <% if (!nonAcad) { %><td><%= capScore(a.academic_score) %></td><% } %>
-        <% if (usesExam) { %><td><%= a.percentage !== null ? (+a.percentage).toFixed(1) + '% (' + a.score + '/' + a.total_questions + ')' : 'Not taken' %></td><% } %>
-        <td><%= a.interview_score !== null ? a.interview_score : '—' %></td>
-        <% if (caps && a.combined) { %><td><%= a.personal_data_score !== null ? a.personal_data_score : '—' %></td><td><strong><%= a.combined.total %><%= a.combined.complete ? '' : ' (incomplete)' %></strong></td><% } %>
+        <td class="num"><%= a.experience_years || 0 %></td>
+        <% if (!nonAcad) { %><td class="num"><%= capScore(a.academic_score) %></td><% } %>
+        <% if (usesExam) { %><td class="num"><%= a.percentage !== null ? (+a.percentage).toFixed(1) + '% (' + a.score + '/' + a.total_questions + ')' : 'Not taken' %></td><% } %>
+        <td class="num"><%= a.interview_score !== null ? a.interview_score : '—' %></td>
+        <% if (caps && a.combined) { %><td class="num"><%= a.personal_data_score !== null ? a.personal_data_score : '—' %></td><td class="num"><strong><%= a.combined.total %><%= a.combined.complete ? '' : ' (incomplete)' %></strong></td><% } %>
         <td><span class="badge status-<%= a.status %>"><%= a.status %></span></td>
-        <td>
+        <td class="col-application"><a href="/admin/applications/<%= a.id %>" class="btn btn-primary btn-view">View application</a></td>
+        <td class="col-decision">
           <% if (!['Accepted'].includes(a.status)) { %>
-          <form action="/applications/<%= a.id %>/status" method="POST" class="actions" style="gap:6px;"><%- include('../partials/csrf') %>
-            <% if (['Shortlisted','Recommended'].includes(a.status)) { %><button name="status" value="Accepted" class="btn btn-success btn-sm">Accept</button><% } %>
-            <% if (a.status !== 'Rejected') { %><button name="status" value="Rejected" class="btn btn-danger btn-sm">Reject</button><% } %>
+          <form action="/applications/<%= a.id %>/status" method="POST" class="actions" style="gap:6px;flex-wrap:nowrap;"><%- include('../partials/csrf') %>
+            <% if (['Shortlisted','Recommended'].includes(a.status)) { %><button name="status" value="Accepted" class="btn btn-success btn-sm" data-confirm="Accept <%= a.applicant_name %>? This is final." onclick="return confirm(this.dataset.confirm)">Accept</button><% } %>
+            <% if (a.status !== 'Rejected') { %><button name="status" value="Rejected" class="btn btn-danger btn-sm" data-confirm="Reject <%= a.applicant_name %>? This changes their status to Rejected." onclick="return confirm(this.dataset.confirm)">Reject</button><% } %>
           </form><% } %>
         </td>
       </tr>

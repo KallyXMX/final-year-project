@@ -22,10 +22,14 @@
         <span class="text-muted" style="font-size:13px;text-align:right;">
           Opens: <strong><%= fmtDate(job.opens_at) %></strong><br>Deadline: <strong><%= fmtDate(job.deadline) %></strong></span>
       </div>
-      <p style="margin-top:14px;font-size:14px;line-height:1.6;white-space:pre-line;"><strong>Description:</strong> <%= job.description %></p>
-      <p style="margin-top:8px;font-size:14px;line-height:1.6;white-space:pre-line;"><strong>Requirements:</strong> <%= job.requirements %></p>
-      <p style="margin-top:8px;font-size:13px;color:#4a5568;">Minimum: <strong><%= job.min_qualification === 'None' ? 'No minimum qualification' : job.min_qualification %></strong>
-        <% if (job.min_qualification !== 'None') { %> degree level<% } %> &middot; <strong><%= job.min_experience_years %></strong> year(s) experience</p>
+      <p class="vac-min">Minimum qualification: <strong><%= job.min_qualification === 'None' ? 'None' : job.min_qualification %></strong>
+        <span class="vac-min-gap"></span>Minimum experience: <strong><%= job.min_experience_years %> year(s)</strong></p>
+      <div class="vac-preview"><%- include('partials/rich-text', { text: job.description }) %></div>
+      <details class="vac-details">
+        <summary>Read full description and requirements</summary>
+        <div class="vac-block"><h4>Description</h4><div class="rich"><%- include('partials/rich-text', { text: job.description }) %></div></div>
+        <div class="vac-block"><h4>Requirements</h4><div class="rich"><%- include('partials/rich-text', { text: job.requirements }) %></div></div>
+      </details>
 
       <% if (job.category === 'academic') { %><%- include('partials/points-scheme', { job }) %><% } %>
 

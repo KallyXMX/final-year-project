@@ -5,10 +5,10 @@
   <tbody>
   <% if (sessions.length === 0) { %><tr><td colspan="6" style="text-align:center;">No sessions recorded.</td></tr><% } %>
   <% sessions.forEach(s => { %>
-    <tr><td><%= s.user_name %><br><span class="text-muted" style="font-size:12px;"><%= s.user_email %></span></td>
+    <tr><td><%= s.user_name %><br><span class="text-muted" style="font-size:13px;"><%= s.user_email %></span></td>
       <td><%= s.role %></td><td><%= fmtDateTime(s.login_at) %></td>
       <td><%= s.logout_at ? fmtDateTime(s.logout_at) : 'Active / expired' %></td><td><%= s.ip || '' %></td>
-      <td style="max-width:260px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><%= s.user_agent %></td></tr>
+      <td style="max-width:260px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><%= s.user_agent %></td></tr>
   <% }) %>
   </tbody></table></div>
 <%- include('../partials/footer') %>

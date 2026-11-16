@@ -28,40 +28,43 @@
   </div>
   <div class="card" style="margin:0">
     <h3 style="margin-bottom:12px;">Vacancy criteria vs applicant</h3>
-    <dl class="kv">
-      <dt>Min. qualification</dt><dd><%= application.min_qualification %></dd>
-      <dt>Highest qualification</dt><dd><%= application.highest_qualification || '—' %></dd>
-      <dt>Min. experience</dt><dd><%= application.min_experience_years %> yr</dd>
-      <dt>Experience</dt><dd><%= application.experience_years || 0 %> yr</dd>
-    </dl>
+    <table class="criteria-table">
+      <thead><tr><th>Criterion</th><th>Required</th><th>Applicant</th><th>Result</th></tr></thead>
+      <tbody>
+      <% criteria.forEach(c => { %>
+        <tr><td class="label-cell"><%= c.name %></td><td><%= c.required %></td><td><%= c.applicant %></td>
+          <td><% if (c.ok) { %><span class="result-ok">&#10003; Meets</span><% } else { %><span class="result-bad">&#10007; <%= c.bad %></span><% } %></td></tr>
+      <% }) %>
+      </tbody>
+    </table>
   </div>
 </div>
 
 <div class="card mt-2">
   <h3 style="margin-bottom:12px;">Qualifications, experience<%= academic ? ', publications, seminars & workshops' : '' %></h3>
-  <div class="grid grid-2">
-    <% [['Academic qualifications', lists.qualifications], ['Work experience', lists.experience]].concat(academic ? [['Research publications', lists.publications], ['Seminars & workshops', lists.seminars]] : []).forEach(sec => { %>
-      <div><strong style="font-size:13px;"><%= sec[0] %></strong>
-        <% if (sec[1].length === 0) { %><p class="text-muted" style="font-size:13px;">None listed</p>
-        <% } else { %><ul style="padding-left:18px;font-size:14px;"><% sec[1].forEach(i => { %><li><%= i %></li><% }) %></ul><% } %></div>
-    <% }) %>
-  </div>
+  <% [['Academic qualifications', lists.qualifications], ['Work experience', lists.experience]].concat(academic ? [['Research publications', lists.publications], ['Seminars & workshops', lists.seminars]] : []).forEach(sec => { %>
+    <div class="summary-section">
+      <h4><%= sec[0] %> (<%= sec[1].length %>)</h4>
+      <% if (sec[1].length === 0) { %><p class="text-muted">None provided by the applicant</p>
+      <% } else { %><ul><% sec[1].forEach(i => { %><li><%= i %></li><% }) %></ul><% } %>
+    </div>
+  <% }) %>
 </div>
 
 <% if (academic) { %>
   <div class="card">
     <h3 style="margin-bottom:12px;">Academic evaluation</h3>
     <table>
-      <thead><tr><th>Criteria</th><th>Applicant details</th><th>Points</th></tr></thead>
+      <thead><tr><th>Criteria</th><th>Applicant details</th><th class="num">Points</th></tr></thead>
       <tbody>
-        <tr><td>Degree qualification <small>(PhD=<%= scheme.phd %>, Masters=<%= scheme.master %>, Bachelor=<%= scheme.bachelor %>)</small></td><td><%= application.highest_qualification || 'N/A' %></td><td><%= breakdown.degreePoints %></td></tr>
-        <tr><td>Teaching experience <small>(<%= scheme.perYearExperience %> pts / year)</small></td><td><%= application.experience_years || 0 %> years</td><td><%= breakdown.expPoints %></td></tr>
-        <tr><td>Journal publications <small>(<%= scheme.perPublication %> pts each)</small></td><td><%= application.journal_publications_count %></td><td><%= breakdown.pubPoints %></td></tr>
-        <tr><td>Seminars &amp; workshops <small>(<%= scheme.perSeminar %> pts each)</small></td><td><%= application.seminars_attended %></td><td><%= breakdown.semPoints %></td></tr>
+        <tr><td>Degree qualification <small>(PhD=<%= scheme.phd %>, Masters=<%= scheme.master %>, Bachelor=<%= scheme.bachelor %>)</small></td><td><%= application.highest_qualification || 'N/A' %></td><td class="num"><%= breakdown.degreePoints %></td></tr>
+        <tr><td>Teaching experience <small>(<%= scheme.perYearExperience %> pts / year)</small></td><td><%= application.experience_years || 0 %> years</td><td class="num"><%= breakdown.expPoints %></td></tr>
+        <tr><td>Journal publications <small>(<%= scheme.perPublication %> pts each)</small></td><td><%= application.journal_publications_count %></td><td class="num"><%= breakdown.pubPoints %></td></tr>
+        <tr><td>Seminars &amp; workshops <small>(<%= scheme.perSeminar %> pts each)</small></td><td><%= application.seminars_attended %></td><td class="num"><%= breakdown.semPoints %></td></tr>
         <% if (caps) { %>
-          <tr><td colspan="2" style="text-align:right;"><strong>Academic part</strong> <small class="text-muted">(qualification + experience + publications, each capped at its maximum)</small></td><td><strong><%= combined.academic %> / <%= caps.qualification + caps.experience + caps.publications %></strong></td></tr>
+          <tr><td colspan="2" style="text-align:right;"><strong>Academic part</strong> <small class="text-muted">(qualification + experience + publications, each capped at its maximum)</small></td><td class="num"><strong><%= combined.academic %> / <%= caps.qualification + caps.experience + caps.publications %></strong></td></tr>
         <% } else { %>
-        <tr><td colspan="2" style="text-align:right;"><strong>Total academic score</strong></td><td><strong><%= capScore(application.academic_score) %> points</strong><% if (breakdown.raw > 100) { %><br><small class="text-muted">(<%= breakdown.raw %> before the cap of 100)</small><% } %></td></tr>
+        <tr><td colspan="2" style="text-align:right;"><strong>Total academic score</strong></td><td class="num"><strong><%= capScore(application.academic_score) %> points</strong><% if (breakdown.raw > 100) { %><br><small class="text-muted">(<%= breakdown.raw %> before the cap of 100)</small><% } %></td></tr>
         <% } %>
       </tbody>
     </table>
@@ -85,8 +88,8 @@
     <% if (!exam) { %><p class="text-muted">The applicant has not taken the exam.</p><% } else { %>
       <p style="font-size:15px;"><strong><%= exam.score %>/<%= exam.total_questions %></strong> correct &middot; weighted score <strong><%= (+exam.percentage).toFixed(1) %>%</strong>
         <span class="badge <%= exam.passed ? 'badge-success' : 'badge-danger' %>"><%= exam.passed ? 'Passed' : 'Failed' %> (pass mark <%= application.pass_mark %>%)</span></p>
-      <table style="margin-top:10px;"><thead><tr><th>Section</th><th>Correct</th><th>%</th><th>Weight</th></tr></thead><tbody>
-        <% sectionScores.forEach(s => { %><tr><td><%= s.section %></td><td><%= s.correct %>/<%= s.total %></td><td><%= s.percentage %>%</td><td><%= s.weight %></td></tr><% }) %>
+      <table style="margin-top:10px;"><thead><tr><th>Section</th><th class="num">Correct</th><th class="num">%</th><th class="num">Weight</th></tr></thead><tbody>
+        <% sectionScores.forEach(s => { %><tr><td><%= s.section %></td><td class="num"><%= s.correct %>/<%= s.total %></td><td class="num"><%= s.percentage %>%</td><td class="num"><%= s.weight %></td></tr><% }) %>
       </tbody></table>
     <% } %>
   </div>
@@ -95,22 +98,22 @@
 <div class="card">
   <% if (combined) { %>
   <div class="card">
-    <h3 style="margin-bottom:12px;">Recruitment score <span class="text-muted" style="font-size:12px;font-weight:400;">(out of 100)</span></h3>
+    <h3 style="margin-bottom:12px;">Recruitment score <span class="text-muted" style="font-size:13px;font-weight:400;">(out of 100)</span></h3>
     <table>
-      <thead><tr><th>Component</th><th>Maximum</th><th>Score</th></tr></thead>
+      <thead><tr><th>Component</th><th class="num">Maximum</th><th class="num">Score</th></tr></thead>
       <tbody>
-        <tr><td>Personal data</td><td><%= caps.personalData %></td><td><%= combined.personal !== null ? combined.personal : 'Not recorded' %></td></tr>
-        <tr><td>Educational qualification <small>(degree points <%= breakdown.degreePoints %>, capped)</small></td><td><%= caps.qualification %></td><td><%= combined.parts.qualification %></td></tr>
-        <tr><td>Relevant experience <small>(<%= breakdown.expPoints %> points, capped)</small></td><td><%= caps.experience %></td><td><%= combined.parts.experience %></td></tr>
-        <tr><td>Publications and seminars <small>(<%= breakdown.pubPoints + breakdown.semPoints %> points, capped)</small></td><td><%= caps.publications %></td><td><%= combined.parts.publications %></td></tr>
-        <tr><td>Physical interview</td><td><%= caps.interview %></td><td><%= combined.interview !== null ? combined.interview : 'Not recorded' %></td></tr>
-        <tr><td style="text-align:right;"><strong>Combined total</strong></td><td><strong><%= caps.personalData + caps.qualification + caps.experience + caps.publications + caps.interview %></strong></td>
-          <td><strong><%= combined.total %><%= combined.complete ? '' : ' (incomplete)' %></strong><% if (!combined.complete) { %><br><small class="text-muted">(personal data and interview scores still missing count as 0; not ranked yet)</small><% } %></td></tr>
+        <tr><td>Personal data</td><td class="num"><%= caps.personalData %></td><td class="num"><%= combined.personal !== null ? combined.personal : 'Not recorded' %></td></tr>
+        <tr><td>Educational qualification <small>(degree points <%= breakdown.degreePoints %>, capped)</small></td><td class="num"><%= caps.qualification %></td><td class="num"><%= combined.parts.qualification %></td></tr>
+        <tr><td>Relevant experience <small>(<%= breakdown.expPoints %> points, capped)</small></td><td class="num"><%= caps.experience %></td><td class="num"><%= combined.parts.experience %></td></tr>
+        <tr><td>Publications and seminars <small>(<%= breakdown.pubPoints + breakdown.semPoints %> points, capped)</small></td><td class="num"><%= caps.publications %></td><td class="num"><%= combined.parts.publications %></td></tr>
+        <tr><td>Physical interview</td><td class="num"><%= caps.interview %></td><td class="num"><%= combined.interview !== null ? combined.interview : 'Not recorded' %></td></tr>
+        <tr><td style="text-align:right;"><strong>Combined total</strong></td><td class="num"><strong><%= caps.personalData + caps.qualification + caps.experience + caps.publications + caps.interview %></strong></td>
+          <td class="num"><strong><%= combined.total %><%= combined.complete ? '' : ' (incomplete)' %></strong><% if (!combined.complete) { %><br><small class="text-muted">(personal data and interview scores still missing count as 0; not ranked yet)</small><% } %></td></tr>
       </tbody>
     </table>
   </div>
   <% } %>
-  <h3 style="margin-bottom:12px;">Interview evaluation <span class="text-muted" style="font-size:12px;font-weight:400;">(optional &mdash; the interview itself takes place outside the system)</span></h3>
+  <h3 style="margin-bottom:12px;">Interview evaluation <span class="text-muted" style="font-size:13px;font-weight:400;">(optional &mdash; the interview itself takes place outside the system)</span></h3>
   <% if (application.interview_score !== null) { %>
     <p><strong>Interview score:</strong> <%= application.interview_score %>/<%= caps ? caps.interview : 100 %><% if (caps) { %><br><strong>Personal data score:</strong> <%= application.personal_data_score !== null ? application.personal_data_score + '/' + caps.personalData : 'Not recorded' %><% } %><br><strong>Panel remarks:</strong> <%= application.interviewer_remarks || 'None' %></p>
   <% } else { %><p class="text-muted">No interview result recorded yet.</p><% } %>
