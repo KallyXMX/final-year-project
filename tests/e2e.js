@@ -318,7 +318,7 @@ class Client {
 
     // stacked summary with counts
     r = await admin.req('GET', `/admin/applications/${aid}`);
-    check('Summary card: four stacked sections with counts', ['Academic qualifications (1)', 'Work experience (1)', 'Research publications (2)', 'Seminars & workshops (1)'].every((h) => r.text.includes(`<h4>${h.replace('&', '&amp;')}</h4>`)), 'headings missing');
+    check('Summary card: four stacked sections with counts (the single-box text "P1\nP2" is stored as one entry)', ['Academic qualifications (1)', 'Work experience (1)', 'Research publications (1)', 'Seminars & workshops (1)'].every((h) => r.text.includes(`<h4>${h.replace('&', '&amp;')}</h4>`)), 'headings missing');
     check('Summary card: no longer laid out in columns', !/grid grid-2">\s*<div class="summary-section"/.test(r.text) && (r.text.match(/class="summary-section"/g) || []).length === 4);
     db.prepare("UPDATE applications SET seminars_text = '' WHERE id = ?").run(aid);
     r = await admin.req('GET', `/admin/applications/${aid}`);
