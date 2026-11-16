@@ -92,6 +92,15 @@ a:hover {
   background-color: #c53030 !important;
 }
 
+/* Logout is a form button (POST), styled like the old link. */
+.logout-form { margin: 0; }
+button.btn-nav-logout {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: inherit;
+}
+
 /* --- Page Wrapper --- */
 .page-wrapper {
   flex: 1;

@@ -221,6 +221,55 @@ class Client {
   const bad = new Client(base); r = await bad.login('good@t.com', 'wrong'); check('Bad password rejected', r.status === 400);
   r = await good.req('POST', '/vacancies/create', { form: { title: 'x' } }); check('POST without CSRF blocked', r.status === 403);
 
+  // ---- weak-spot fixes: logout is a POST, dashboard JSON is script-safe, a failed CSRF check leaves no uploaded file
+  const logoutCount = () => db.prepare("SELECT COUNT(*) c FROM audit_logs WHERE action = 'LOGOUT'").get().c;
+  const lo = new Client(base);
+  await lo.login('good@t.com', 'passw0rdX');
+  r = await lo.req('GET', '/dashboard');
+  check('Logout button is a POST form with a CSRF token and there is no /logout link', r.status === 200 && /<form action="\/logout" method="POST"[^>]*>\s*<input type="hidden" name="_csrf" value="[a-f0-9]+">/.test(r.text) && !/href="\/logout"/.test(r.text));
+  const outBefore = logoutCount();
+  r = await lo.req('GET', '/logout');
+  const afterGet = await lo.req('GET', '/dashboard');
+  check('GET /logout does not log the user out (session and audit log unchanged)', afterGet.status === 200 && logoutCount() === outBefore, `GET /logout -> ${r.status}, dashboard -> ${afterGet.status}`);
+  r = await lo.req('POST', '/logout', { form: {} });
+  check('POST /logout without the CSRF token is refused and the session stays', r.status === 403 && (await lo.req('GET', '/dashboard')).status === 200 && logoutCount() === outBefore, `status ${r.status}`);
+  const lotoken = await lo.token('/dashboard');
+  r = await lo.req('POST', '/logout', { form: { _csrf: lotoken } });
+  check('POST /logout with the token logs out and redirects to /login', r.status === 302 && r.loc === '/login', `${r.status} ${r.loc}`);
+  r = await lo.req('GET', '/dashboard');
+  check('After POST /logout the session is gone (dashboard redirects to /login)', r.status === 302 && r.loc === '/login', `${r.status} ${r.loc}`);
+  check('Logout still writes the LOGOUT audit entry and the logout time', logoutCount() === outBefore + 1 &&
+    db.prepare("SELECT COUNT(*) c FROM login_sessions WHERE user_id = (SELECT id FROM users WHERE email = 'good@t.com') AND logout_at IS NOT NULL").get().c >= 1);
+
+  const evil = '</script><script>alert(1)</script>';
+  r = await mkVac({ title: evil, department: 'X', category: 'non-academic' });
+  check('A vacancy title containing </script> can be created (it is only escaped on output)', r.status === 302, `status ${r.status}`);
+  r = await admin.req('GET', '/dashboard');
+  check('Dashboard chart data escapes < > & : the title cannot end the script', r.status === 200 && !r.text.includes('</script><script>alert(1)') &&
+    r.text.includes('\\u003c/script\\u003e\\u003cscript\\u003ealert(1)\\u003c/script\\u003e'), `status ${r.status}`);
+  check('Dashboard still has its three chart data variables', /var status = \{/.test(r.text) && /var perVacancy = \[/.test(r.text) && /var exam = \{/.test(r.text));
+
+  await mkVac({ title: 'Orphan Check', department: 'X', category: 'non-academic' });
+  const vOrph = db.prepare("SELECT id FROM vacancies WHERE title = 'Orphan Check'").get().id;
+  const orph = await mkApplicant('orph');
+  const uploadCount = () => fs.readdirSync(process.env.UPLOAD_DIR).length;
+  const applyForm = () => {
+    const fd = new FormData();
+    Object.entries({ phone: '08012345678', address: '1 Kano Road', highest_qualification: 'Bachelor', experience_years: '2', qualifications_text: 'BSc CS', experience_text: 'x' }).forEach(([k, v]) => fd.append(k, v));
+    fd.append('cv', pdf(), 'cv.pdf'); fd.append('supporting_docs', pdf(), 'docs.pdf');
+    return fd;
+  };
+  const filesBefore = uploadCount();
+  r = await orph.req('POST', `/vacancies/${vOrph}/apply?_csrf=wrong`, { multipart: applyForm() });
+  check('Upload with a wrong CSRF token is refused (403), no application is created', r.status === 403 && !db.prepare('SELECT 1 FROM applications WHERE vacancy_id = ?').get(vOrph), `status ${r.status}`);
+  check('... and the files Multer had saved are deleted (upload folder unchanged)', uploadCount() === filesBefore, `${filesBefore} -> ${uploadCount()}`);
+  r = await orph.req('POST', `/vacancies/${vOrph}/apply`, { multipart: applyForm() });
+  check('Upload with no CSRF token is refused (403) and leaves no file', r.status === 403 && uploadCount() === filesBefore, `status ${r.status}, ${filesBefore} -> ${uploadCount()}`);
+  const orphPage = await orph.req('GET', `/vacancies/${vOrph}/apply`);
+  const orphTok = /_csrf=([a-f0-9]+)/.exec(orphPage.text);
+  r = await orph.req('POST', `/vacancies/${vOrph}/apply?_csrf=${orphTok && orphTok[1]}`, { multipart: applyForm() });
+  check('Control: the same upload with the right token is accepted and its 2 files are kept', r.status === 302 && uploadCount() === filesBefore + 2 && !!db.prepare('SELECT 1 FROM applications WHERE vacancy_id = ?').get(vOrph), `status ${r.status}, ${filesBefore} -> ${uploadCount()}`);
+
   const failed = results.filter((x) => !x.ok);
   console.log(`\n${results.length - failed.length}/${results.length} passed`);
   await cleanup({ server, db, tmp }); // never throws; a cleanup problem only prints a warning

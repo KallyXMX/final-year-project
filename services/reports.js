@@ -4,6 +4,7 @@ const PDFDocument = require('pdfkit');
 const { createObjectCsvStringifier } = require('csv-writer');
 const { vacancyState } = require('../utils/vacancy');
 const { capScore, combinedOf, totalLabel } = require('../utils/qualifications');
+const { STATUS } = require('../utils/constants');
 const { fmtDateTime } = require('../utils/time');
 
 // Requirement 4.7: applicant reports, shortlisted candidate reports, examination results and
@@ -93,7 +94,10 @@ const REPORTS = {
     // shown as e.g. "59 (incomplete)".
     // Remaining ties are broken by exam %, interview score, then the earlier application time, then the application id,
     // so the order is always the same.
-    // When a vacancy has a number of positions (slots), that many top-ranked rows are marked "Within slots" (visual only).
+    // A Rejected candidate (for example rejected after the interview) is listed after all active candidates, shows "Rejected" in the
+    // Rank column, takes no rank number and never gets the "Within slots" marker.
+    // When a vacancy has a number of positions (slots), that many top-ranked rows are marked "Within slots" (visual only):
+    // only active candidates who have a rank count.
     rows: (vacancyId) => {
       const f = vacancyFilter(vacancyId);
       const raw = db.prepare(`
@@ -112,12 +116,15 @@ const REPORTS = {
         r.combined = r.category === 'academic' ? combinedOf(r, r) : null;
         // Only vacancies with maxima can be "not ranked yet": the candidate still lacks personal data and/or interview score.
         r.unranked = !!(r.combined && !r.combined.complete);
+        r.rejected = r.status === STATUS.REJECTED;
       });
+      // Listing groups: 0 = active and complete (ranked), 1 = active but still missing scores, 2 = Rejected.
+      const group = (r) => (r.rejected ? 2 : r.unranked ? 1 : 0);
       const metric = (r) => (r.combined ? r.combined.total : r.category === 'academic' ? capScore(r.academic_score) : r.percentage || 0);
       const earlier = (x, y) => (x.applied_at < y.applied_at ? -1 : x.applied_at > y.applied_at ? 1 : 0);
       eligible.sort((x, y) =>
         x.vacancy_id - y.vacancy_id ||
-        Number(x.unranked) - Number(y.unranked) ||
+        group(x) - group(y) ||
         metric(y) - metric(x) ||
         (r1(y.percentage) || 0) - (r1(x.percentage) || 0) ||
         (y.interview_score ?? -1) - (x.interview_score ?? -1) ||
@@ -126,9 +133,10 @@ const REPORTS = {
       let lastVacancy = null, rank = 0;
       return eligible.map((r) => {
         if (r.vacancy_id !== lastVacancy) { lastVacancy = r.vacancy_id; rank = 0; }
-        if (!r.unranked) rank++; // unranked rows sort last, so they never shift the ranks above them
+        const ranked = group(r) === 0;
+        if (ranked) rank++; // unranked and Rejected rows sort last, so they never shift the ranks above them
         return {
-          rank: r.unranked ? 'Not ranked yet' : rank,
+          rank: r.rejected ? 'Rejected' : r.unranked ? 'Not ranked yet' : rank,
           name: r.name,
           vacancy: r.vacancy,
           category: r.category,
@@ -142,7 +150,7 @@ const REPORTS = {
           publications: r.combined ? r.combined.parts.publications : '',
           personal: r.combined ? (r.combined.personal ?? '') : '',
           total: r.combined ? totalLabel(r.combined) : '',
-          slots: !r.unranked && r.slots && rank <= r.slots ? 'Within slots' : ''
+          slots: ranked && r.slots && rank <= r.slots ? 'Within slots' : ''
         };
       });
     }

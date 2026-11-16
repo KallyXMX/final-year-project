@@ -13,6 +13,7 @@ router.get('/register', (req, res) => {
   res.render('register', { errorMessage: null, values: {} });
 });
 router.post('/register', authController.register);
-router.get('/logout', authController.logout);
+// Logout changes state, so it is a POST (CSRF-protected). A GET to /logout does nothing (404).
+router.post('/logout', authController.logout);
 
 module.exports = router;

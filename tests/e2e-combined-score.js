@@ -275,6 +275,36 @@ class Client {
   c = await csv(T);
   check('A higher total still beats an earlier application (T2 applied last but totals 60.5, so it is first)', c.rows[0].Name === 'T2' && c.rows[0]['Total /100'] === '60.5', c.rows.map((x) => `${x.Name}:${x['Total /100']}`).join());
 
+  // Rejected candidates (for example rejected after the interview): listed after all active ones, "Rejected" instead of a rank, no slot marker.
+  await mkVac({ title: 'Rank Rejected', category: 'academic' });
+  const RJ = vacId('Rank Rejected');
+  db.prepare('UPDATE vacancies SET slots = 3 WHERE id = ?').run(RJ);
+  addApp(RJ, 'RJ1', { q: 'PhD', years: 4, pubs: 5, personal: 10, interview: 20, status: 'Rejected' }); // 70 + 10 + 20 = 100, the best total, but Rejected
+  addApp(RJ, 'RJ2', { q: 'Master', years: 4, personal: 8, interview: 15 });                            // 45 + 8 + 15 = 68
+  addApp(RJ, 'RJ3', { q: 'Bachelor', years: 2, personal: 5, interview: 10 });                           // 20 + 5 + 10 = 35
+  addApp(RJ, 'RJ4', { q: 'PhD', years: 4, pubs: 5 });                                                   // 70, no scores yet (active, not ranked yet)
+  addApp(RJ, 'RJ5', { q: 'Master', years: 2, status: 'Rejected' });                                      // 35, no scores, Rejected
+  c = await csv(RJ);
+  check('Rejected: active candidates first (ranked, then not ranked yet), Rejected ones last (RJ2, RJ3, RJ4, RJ1, RJ5)', c.rows.map((x) => x.Name).join() === 'RJ2,RJ3,RJ4,RJ1,RJ5', c.rows.map((x) => x.Name).join());
+  check('Rejected: ranks are 1, 2, "Not ranked yet", "Rejected", "Rejected" (RJ1 has the best total but takes no rank)', c.rows.map((x) => x.Rank).join() === '1,2,Not ranked yet,Rejected,Rejected', c.rows.map((x) => x.Rank).join());
+  check('Rejected: slots = 3 marks only the two active ranked candidates (not RJ4 unranked, not RJ1 or RJ5 Rejected)', c.rows.map((x) => x.Slots).join('|') === 'Within slots|Within slots|||', c.rows.map((x) => x.Slots).join('|'));
+  check('Rejected: the Status column shows Rejected for RJ1 and RJ5, and the total of RJ1 is still shown (100)', c.rows.find((x) => x.Name === 'RJ1').Status === 'Rejected' && c.rows.find((x) => x.Name === 'RJ5').Status === 'Rejected' && c.rows.find((x) => x.Name === 'RJ1')['Total /100'] === '100');
+  const rjRows = REPORTS.merit.rows(RJ);
+  check('Rejected: PDF and CSV use the same rows (same names, ranks and slot markers)', rjRows.map((x) => `${x.name}:${x.rank}:${x.slots}`).join() === c.rows.map((x) => `${x.Name}:${x.Rank}:${x.Slots}`).join(), rjRows.map((x) => `${x.name}:${x.rank}`).join());
+  const rjPdf = await fetch(`${base}/admin/reports/merit/pdf?vacancy_id=${RJ}`, { headers: { cookie: Object.entries(admin.cookies).map(([k, v]) => `${k}=${v}`).join('; ') } });
+  check('Rejected: the merit PDF still builds', rjPdf.status === 200 && Buffer.from(await rjPdf.arrayBuffer()).slice(0, 4).toString() === '%PDF');
+  db.prepare("UPDATE applications SET status = 'Shortlisted' WHERE id = (SELECT a.id FROM applications a JOIN users u ON u.id = a.user_id WHERE u.name = 'RJ1' AND a.vacancy_id = ?)").run(RJ);
+  c = await csv(RJ);
+  check('Rejected: once RJ1 is no longer Rejected it is ranked 1 with "Within slots"', c.rows[0].Name === 'RJ1' && c.rows[0].Rank === '1' && c.rows[0].Slots === 'Within slots', c.rows.map((x) => `${x.Name}:${x.Rank}`).join());
+  // non-academic vacancy: a Rejected candidate with a higher exam % does not take rank 1 or the single slot
+  await mkVac({ title: 'Rank Rejected NA', category: 'non-academic' });
+  const RN = vacId('Rank Rejected NA');
+  db.prepare('UPDATE vacancies SET slots = 1 WHERE id = ?').run(RN);
+  addApp(RN, 'RN1', { exam: 80 });
+  addApp(RN, 'RN2', { exam: 95, status: 'Rejected' });
+  c = await csv(RN);
+  check('Rejected (non-academic): RN1 (80%) is rank 1 and within the slot; RN2 (95%, Rejected) is listed after it with no rank and no slot', c.rows.map((x) => `${x.Name}:${x.Rank}:${x.Slots}`).join() === 'RN1:1:Within slots,RN2:Rejected:', c.rows.map((x) => `${x.Name}:${x.Rank}:${x.Slots}`).join());
+
   // positions marker value limits
   for (const [name, v] of [['zero', '0'], ['negative', '-2'], ['decimal', '1.5'], ['text', 'x'], ['above 1000', '1001']]) {
     r = await admin.post(settingsOf(R2), { ...okSettings, slots: v });

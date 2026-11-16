@@ -36,9 +36,11 @@
   <script>
     (function () {
       if (typeof Chart === 'undefined') return;
-      var status = <%- JSON.stringify(analytics.statusCounts) %>;
-      var perVacancy = <%- JSON.stringify(analytics.perVacancy) %>;
-      var exam = <%- JSON.stringify(analytics.examOutcome) %>;
+      <% /* JSON printed into a script: < > & become \u003c \u003e \u0026 so a vacancy title such as "</script>" cannot end the script. */
+         const jsonForScript = (o) => JSON.stringify(o).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026'); %>
+      var status = <%- jsonForScript(analytics.statusCounts) %>;
+      var perVacancy = <%- jsonForScript(analytics.perVacancy) %>;
+      var exam = <%- jsonForScript(analytics.examOutcome) %>;
       new Chart(document.getElementById('statusChart'), {
         type: 'doughnut',
         data: { labels: Object.keys(status), datasets: [{ data: Object.values(status),
