@@ -34,7 +34,30 @@
   <% if (locked) { %><p class="hint">Applicants have already started the exam, so these switches are locked.</p><% } %>
   <label style="display:block;margin-bottom:8px;"><input type="checkbox" name="academic_exam_enabled" value="1" <%= Number(values.academic_exam_enabled) === 1 ? 'checked' : '' %> <%= locked ? 'disabled' : '' %>>
     Enable the online exam for this vacancy <span class="text-muted">(academic vacancies only; non-academic vacancies always have the exam)</span></label>
+  <div id="exam-sections">
   <label style="display:block;margin-bottom:8px;"><input type="checkbox" name="aptitude_enabled" value="1" <%= values.aptitude_enabled === 0 || values.aptitude_enabled === '0' ? '' : 'checked' %> <%= locked ? 'disabled' : '' %>> Aptitude section on</label>
   <label style="display:block;margin-bottom:8px;"><input type="checkbox" name="literacy_enabled" value="1" <%= values.literacy_enabled === 0 || values.literacy_enabled === '0' ? '' : 'checked' %> <%= locked ? 'disabled' : '' %>> Computer Literacy section on</label>
-  <p class="hint">At least one section must stay on. With one section on, it counts at full weight.</p>
+  <p class="hint">At least one section must stay on. With one section on, it counts at full weight. (For an academic vacancy, the sections only apply while the online exam is enabled.)</p>
+  </div>
 </fieldset>
+<script>
+// Grey out the section boxes while an academic vacancy has the exam switched off (the server ignores them then).
+(function () {
+  var sw = document.querySelector('input[name="academic_exam_enabled"]');
+  var box = document.getElementById('exam-sections');
+  if (!sw || !box) return;
+  var cat = document.getElementById('category');
+  var fixedAcademic = <%- JSON.stringify(typeof showMaxima !== 'undefined' && showMaxima === true) %>;
+  var locked = <%- JSON.stringify(locked) %>;
+  function update() {
+    var academic = cat ? cat.value === 'academic' : fixedAcademic;
+    var off = academic && !sw.checked;
+    box.style.opacity = off ? '0.45' : '';
+    box.title = off ? 'Not used while the online exam is off' : '';
+    if (!locked) box.querySelectorAll('input').forEach(function (i) { i.disabled = off; });
+  }
+  sw.addEventListener('change', update);
+  if (cat) cat.addEventListener('change', update);
+  update();
+})();
+</script>

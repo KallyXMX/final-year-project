@@ -90,6 +90,11 @@ const parseScore = (raw, label, max) => {
 // Checkboxes: present = on. Returns { values, error }.
 const parseSwitches = (body, category) => {
   const on = (k) => body[k] === '1' || body[k] === 'on';
+  // An academic vacancy with the exam switched off has no exam, so the section boxes do not matter:
+  // store the defaults (both on) and never complain about them.
+  if (category === 'academic' && !on('academic_exam_enabled')) {
+    return { values: { aptitude_enabled: 1, literacy_enabled: 1, academic_exam_enabled: 0 }, error: null };
+  }
   const values = {
     aptitude_enabled: on('aptitude_enabled') ? 1 : 0,
     literacy_enabled: on('literacy_enabled') ? 1 : 0,

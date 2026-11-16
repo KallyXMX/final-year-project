@@ -54,13 +54,27 @@ class Client {
   const bad = [
     ['negative', { pts_phd: '-1' }], ['decimal', { pts_master: '1.5' }], ['text', { pts_bachelor: 'abc' }],
     ['exponent', { pts_per_year: '1e2' }], ['too large', { pts_per_publication: '101' }], ['empty', { pts_per_seminar: '' }],
-    ['both sections off', { aptitude_enabled: undefined, literacy_enabled: undefined }]
+    ['both sections off (academic, exam on)', { academic_exam_enabled: 1, aptitude_enabled: undefined, literacy_enabled: undefined }]
   ];
   for (const [name, o] of bad) {
     const r = await mkVac({ title: `Bad ${name}`, category: 'academic', ...o });
     check(`Create rejected: ${name}`, r.status === 400, `status ${r.status}`);
   }
   check('Rejected vacancies were not saved', countVac() === before);
+  r = await mkVac({ title: 'Non-academic no sections', category: 'non-academic', aptitude_enabled: undefined, literacy_enabled: undefined });
+  check('Create rejected: both sections off (non-academic vacancy)', r.status === 400, `status ${r.status}`);
+  check('Rejected non-academic vacancy was not saved', countVac() === before);
+  r = await mkVac({ title: 'Academic exam off, no sections', category: 'academic', aptitude_enabled: undefined, literacy_enabled: undefined });
+  const AO = db.prepare("SELECT * FROM vacancies WHERE title = 'Academic exam off, no sections'").get();
+  check('Academic, exam off, both sections unticked: created OK with no exam, defaults stored', r.status === 302 && AO && AO.academic_exam_enabled === 0 && AO.aptitude_enabled === 1 && AO.literacy_enabled === 1 && !AO.exam_start, `status ${r.status}`);
+  r = await admin.post(`/admin/vacancies/${AO.id}/settings`, { settings_form: '1', pts_phd: 40, pts_master: 25, pts_bachelor: 10, pts_per_year: 5, pts_per_publication: 4, pts_per_seminar: 2 });
+  check('Settings saved with exam off and both sections unticked (no error)', r.status === 302 && vac(AO.id).academic_exam_enabled === 0, `status ${r.status}`);
+  r = await admin.post(`/admin/vacancies/${AO.id}/settings`, { settings_form: '1', pts_phd: 40, pts_master: 25, pts_bachelor: 10, pts_per_year: 5, pts_per_publication: 4, pts_per_seminar: 2, academic_exam_enabled: 1 });
+  check('Switching the exam on with both sections unticked is rejected', r.status === 400 && vac(AO.id).academic_exam_enabled === 0, `status ${r.status}`);
+  r = await admin.post(`/admin/vacancies/${AO.id}/settings`, { settings_form: '1', pts_phd: 40, pts_master: 25, pts_bachelor: 10, pts_per_year: 5, pts_per_publication: 4, pts_per_seminar: 2, academic_exam_enabled: 1, literacy_enabled: 1 });
+  check('Switching the exam on with one section ticked works', r.status === 302 && vac(AO.id).academic_exam_enabled === 1 && vac(AO.id).aptitude_enabled === 0 && vac(AO.id).literacy_enabled === 1, `status ${r.status}`);
+  r = await admin.req('GET', `/admin/vacancies/${AO.id}/settings`);
+  check('Settings page includes the section toggle script', r.status === 200 && /id="exam-sections"/.test(r.text));
 
   // ---------------------------------------------------------------- 2. defaults + custom scheme on create
   let r = await mkVac({ title: 'Lecturer A', category: 'academic', min_qualification: 'Bachelor' });
@@ -115,7 +129,7 @@ class Client {
   // ---------------------------------------------------------------- 5. settings validation + audit + rescoring
   const settingsUrl = `/admin/vacancies/${B.id}/settings`;
   const okForm = { settings_form: '1', pts_phd: 10, pts_master: 5, pts_bachelor: 2, pts_per_year: 1, pts_per_publication: 1, pts_per_seminar: 1, aptitude_enabled: 1, literacy_enabled: 1 };
-  for (const [name, o] of [['negative', { pts_phd: '-5' }], ['decimal', { pts_per_year: '2.5' }], ['above max', { pts_master: '500' }], ['text', { pts_per_seminar: 'x' }], ['both sections off', { aptitude_enabled: undefined, literacy_enabled: undefined }]]) {
+  for (const [name, o] of [['negative', { pts_phd: '-5' }], ['decimal', { pts_per_year: '2.5' }], ['above max', { pts_master: '500' }], ['text', { pts_per_seminar: 'x' }], ['both sections off (academic, exam on)', { academic_exam_enabled: 1, aptitude_enabled: undefined, literacy_enabled: undefined }]]) {
     r = await admin.post(settingsUrl, { ...okForm, ...o });
     check(`Settings rejected: ${name}`, r.status === 400, `status ${r.status}`);
   }
