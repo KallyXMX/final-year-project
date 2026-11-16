@@ -65,23 +65,25 @@ const REPORTS = {
   merit: {
     title: 'Examination Results & Merit List',
     file: 'Merit_List',
+    wrap: true, // PDF: let long text wrap on word boundaries (rows grow taller) instead of being cut off
     columns: [
-      { key: 'rank', header: 'Rank', width: 80 },
-      { key: 'name', header: 'Name', width: 100 },
-      { key: 'vacancy', header: 'Vacancy', width: 100 },
-      { key: 'category', header: 'Type', width: 55 },
-      { key: 'academic', header: 'Academic pts', width: 55 },
-      { key: 'exam', header: 'Exam %', width: 45 },
-      { key: 'result', header: 'Result', width: 50 },
-      { key: 'interview', header: 'Interview', width: 50 },
-      { key: 'status', header: 'Status', width: 70 },
+      // `pdf` is the shorter heading used only in the PDF; the CSV keeps `header`. Widths are in points (usable A4 landscape width is about 770).
+      { key: 'rank', header: 'Rank', width: 52 },
+      { key: 'name', header: 'Name', width: 90 },
+      { key: 'vacancy', header: 'Vacancy', width: 90 },
+      { key: 'category', header: 'Type', width: 50 },
+      { key: 'academic', header: 'Academic pts', pdf: 'Acad. pts', width: 42 },
+      { key: 'exam', header: 'Exam %', width: 40 },
+      { key: 'result', header: 'Result', width: 40 },
+      { key: 'interview', header: 'Interview', width: 46 },
+      { key: 'status', header: 'Status', width: 64 },
       // Combined recruitment score (academic vacancies with category maxima only; empty otherwise).
-      { key: 'qualification', header: 'Qualification', width: 55 },
-      { key: 'experience', header: 'Experience', width: 50 },
-      { key: 'publications', header: 'Publications', width: 55 },
-      { key: 'personal', header: 'Personal data', width: 50 },
-      { key: 'total', header: 'Total /100', width: 90 },
-      { key: 'slots', header: 'Slots', width: 55 }
+      { key: 'qualification', header: 'Qualification', pdf: 'Qual.', width: 34 },
+      { key: 'experience', header: 'Experience', pdf: 'Exp.', width: 30 },
+      { key: 'publications', header: 'Publications', pdf: 'Pubs', width: 34 },
+      { key: 'personal', header: 'Personal data', pdf: 'Pers. data', width: 40 },
+      { key: 'total', header: 'Total /100', width: 54 },
+      { key: 'slots', header: 'Slots', width: 52 }
     ],
     // Non-academic candidates are ranked by weighted exam %, academic candidates by their
     // qualification points; interview score (when recorded) breaks ties (Requirement 2.8).
@@ -214,6 +216,7 @@ const toPdf = (res, report, rows, subtitle) => {
   const usable = doc.page.width - left - doc.page.margins.right;
   const total = report.columns.reduce((s, c) => s + c.width, 0);
   const cols = report.columns.map((c) => ({ ...c, w: (c.width / total) * usable }));
+  const wrap = !!report.wrap;
 
   const header = () => {
     doc.font('Helvetica-Bold').fontSize(15).fillColor('#1a202c').text('Bayero University Kano - Staff Recruitment', left, 36, { width: usable });
@@ -225,11 +228,18 @@ const toPdf = (res, report, rows, subtitle) => {
 
   const tableHead = () => {
     const y = doc.y;
-    doc.rect(left, y, usable, 20).fill('#2b6cb0');
+    doc.font('Helvetica-Bold').fontSize(8);
+    const label = (c) => c.pdf || c.header;
+    const headH = wrap ? Math.max(20, Math.max(...cols.map((c) => doc.heightOfString(label(c), { width: c.w - 6 }))) + 10) : 20;
+    doc.rect(left, y, usable, headH).fill('#2b6cb0');
     doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(8);
     let x = left;
-    for (const c of cols) { doc.text(c.header, x + 3, y + 6, { width: c.w - 6, lineBreak: false, ellipsis: true }); x += c.w; }
-    doc.y = y + 22;
+    for (const c of cols) {
+      const o = wrap ? { width: c.w - 6 } : { width: c.w - 6, lineBreak: false, ellipsis: true };
+      doc.text(label(c), x + 3, y + (wrap ? 5 : 6), o);
+      x += c.w;
+    }
+    doc.y = y + headH + 2;
     doc.fillColor('#1a202c');
   };
 
@@ -241,23 +251,27 @@ const toPdf = (res, report, rows, subtitle) => {
   if (rows.length === 0) {
     doc.fillColor('#4a5568').text('No records found.', left, doc.y + 8);
   }
+  const cell = (v) => (v === null || v === undefined ? '' : String(v));
   rows.forEach((row, i) => {
-    if (doc.y + 16 > bottomLimit()) {
+    // With wrapping, a row is as tall as its tallest cell (at least the usual 16 points).
+    doc.font('Helvetica').fontSize(8);
+    const rowH = wrap ? Math.max(16, Math.max(...cols.map((c) => doc.heightOfString(cell(row[c.key]), { width: c.w - 6 }))) + 6) : 16;
+    if (doc.y + rowH > bottomLimit()) {
       doc.addPage();
       header();
       tableHead();
       doc.font('Helvetica').fontSize(8);
     }
     const y = doc.y;
-    if (i % 2 === 0) doc.rect(left, y - 2, usable, 16).fill('#f7fafc');
+    if (i % 2 === 0) doc.rect(left, y - 2, usable, rowH).fill('#f7fafc');
     doc.fillColor('#1a202c');
     let x = left;
     for (const c of cols) {
-      const v = row[c.key];
-      doc.text(v === null || v === undefined ? '' : String(v), x + 3, y + 1, { width: c.w - 6, lineBreak: false, ellipsis: true });
+      const o = wrap ? { width: c.w - 6 } : { width: c.w - 6, lineBreak: false, ellipsis: true };
+      doc.text(cell(row[c.key]), x + 3, y + 1, o);
       x += c.w;
     }
-    doc.y = y + 16;
+    doc.y = y + rowH;
   });
 
   // footer with page numbers
