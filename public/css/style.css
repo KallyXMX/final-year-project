@@ -432,6 +432,7 @@ th.num, td.num { text-align: center; }
 .criteria-table thead th { font-weight: 700; color: #1a202c; }
 .criteria-table .label-cell { font-weight: 600; color: #2d3748; }
 .criteria-table td { font-size: 15px; }
+.criteria-table th:last-child, .criteria-table td:last-child { white-space: nowrap; }
 .result-ok { color: #276749; font-weight: 700; }
 .result-bad { color: #c53030; font-weight: 700; }
 .summary-section { margin-bottom: 18px; font-size: 15px; break-inside: avoid; page-break-inside: avoid; }
